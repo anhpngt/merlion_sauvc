@@ -33,4 +33,4 @@ Bring up usb_cam node
 ```
 rosrun usb_cam usb_cam_node _video_device:=/dev/video0
 ```
-Then use RViz to visualize the image topic.
+From ground PC, use rviz or rqt_image_view to visualize the image topic.
