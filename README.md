@@ -25,7 +25,20 @@ export ROS_MASTER_URI=http://192.168.0.101:11311
 export ROS_IP=192.168.0.xxx
 ```
 
-### Bring up Astra camera
+## Astra camera
+
+### Astra ROS Driver
+
+- https://github.com/orbbec/ros_astra_camera
+
+- https://github.com/orbbec/ros_astra_launch
+
+Bringup depth camera by
+```
+roslaunch astra_launch astrapro.launch 
+```
+
+### Astra RGB camera driver
 Install `usb_cam` driver first
 ```
 sudo apt-get install ros-*distro*-usb-cam
@@ -34,7 +47,6 @@ Bring up usb_cam node
 ```
 rosrun usb_cam usb_cam_node _video_device:=/dev/video0 _pixel_format:=yuyv
 ```
-From ground PC, use rviz or rqt_image_view to visualize the image topic.
 
 In case for permission denied on `/dev/video0`:
 ```
