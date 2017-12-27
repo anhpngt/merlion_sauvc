@@ -27,7 +27,7 @@ export ROS_IP=192.168.0.100
 ### Bring up Astra camera
 Install `usb_cam` driver first
 ```
-sudo apt-get install ros-\*distro\*-usb-cam
+sudo apt-get install ros-*distro*-usb-cam
 ```
 Bring up usb_cam node
 ```
