@@ -18,7 +18,7 @@ or
 ssh ugv@ugv-nuc
 ```
 
-Add these lines on ground PC into *.bashrc* to work with NUC ROS
+Add these lines on ground PC into *~/.bashrc* to work with NUC ROS
 ```
 export ROS_MASTER_URI=http://192.168.0.101:11311
 export ROS_IP=192.168.0.100
