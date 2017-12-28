@@ -1,0 +1,2 @@
+# All 3D Robotics (includes PX4) devices
+SUBSYSTEM=="usb", ATTRS{idVendor}=="26ac", GROUP="users", MODE="0666", SYMLINK+="sub", ATTRS{idProduct}=="0011", ATTRS{serial}=="0"

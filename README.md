@@ -19,13 +19,27 @@ or
 ssh ugv@ugv-nuc
 ```
 
-Add these lines on ground PC into *~/.bashrc* to work with NUC ROS
+Add these lines on ground PC into *~/.bashrc* to work with NUC ROS master
 ```
 export ROS_MASTER_URI=http://192.168.0.101:11311
 export ROS_IP=192.168.0.xxx
 ```
+Remove (comment) those line if you want to work with a local ROS master
 
-## Astra camera
+## Manual Motor Control
+```
+roslaunch bluerov bluerov_r1.launch
+```
+In ground PC, plug in the joystick and do
+```
+roslaunch bluerov_apps teleop_f310.launch
+```
+Also note in the launch file above, change the `dev` parameter to match the usb port of the joystick
+```
+<param name="dev" value="/dev/input/js0" type="string"/>
+```
+
+## Astra Camera
 
 ### Astra ROS Driver
 
@@ -38,14 +52,16 @@ Bringup depth camera by
 roslaunch astra_launch astrapro.launch 
 ```
 
-### Astra RGB camera driver
-Install `usb_cam` driver first
+### Astra RGB Camera Driver
+Install `usb_cam` driver
 ```
 sudo apt-get install ros-*distro*-usb-cam
 ```
 Bring up usb_cam node
 ```
 rosrun usb_cam usb_cam_node _video_device:=/dev/video0 _pixel_format:=yuyv
+roslaunch merlion_bringup astra_rgb.launch
+TODO: udev rules
 ```
 
 In case for permission denied on `/dev/video0`:
