@@ -1,0 +1,2 @@
+#!/bin/bash
+rosbag record --output-prefix=TEST --buffsize=0 --bz2 -a

@@ -1,20 +1,12 @@
 <package>
-  <name>astra_launch</name>
-  <version>0.1.0</version>
-  <description>Drivers for Orbbec Astra Devices. </description>
-  <author email="liuhua@orbbec.com">Tim Liu</author>
+  <name>merlion_bringup</name>
+  <version>0.0.0</version>
+  <description>Bring up package for Merlion</description>
+  <author email="phamngtuananh@gmail.com">Tuan Anh</author>
   <license>BSD</license>
-
-  <maintainer email="liuhua@orbbec.com">Tim Liu</maintainer>
-
+  <maintainer email="phamngtuananh@gmail.com">Tuan Anh</maintainer>
 
   <buildtool_depend>catkin</buildtool_depend>
-
-  <run_depend>rgbd_launch</run_depend>
-  <run_depend>depth_image_proc</run_depend>
-  <run_depend>image_proc</run_depend>
-  <run_depend>nodelet</run_depend>
-  <run_depend>astra_camera</run_depend>
-  <run_depend>tf</run_depend>
+  <run_depend>usb_cam</run_depend>
 
 </package>
