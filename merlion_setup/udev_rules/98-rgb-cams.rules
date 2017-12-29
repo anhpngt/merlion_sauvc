@@ -1,0 +1,5 @@
+# Logitech webcam
+SUBSYSTEM=="usb", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", SYMLINK+="logitechcam", ATTRS{idProduct}=="081b", ATTRS{serial}=="956BC6D0"
+
+# Astra rgb camera
+SUBSYSTEM=="usb", ATTRS{idVendor}=="2bc5", MODE="0666", SYMLINK+="astrargbcam", ATTRS{idProduct}=="0501"
