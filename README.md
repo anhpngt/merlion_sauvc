@@ -9,6 +9,14 @@ sudo apt-get install powerwake
 powerwake 192.168.0.101
 ```
 
+### udev
+Udev rules files are stored in `merlion_setup/udev_rules`.
+
+After adding the necessary rules into `/etc/udev/rules.d/`, do
+```
+sudo udevadm control --reload-rules && sudo service udev restart && sudo udevadm trigger
+```
+
 ### SSH
 From ground PC:
 ```
@@ -47,6 +55,11 @@ Also note in the launch file above, change the `dev` parameter to match the usb 
 
 - https://github.com/orbbec/ros_astra_launch
 
+Dependencies
+```
+sudo apt-get update && sudo apt-get install ros-*distro*-astra-camera ros-*distro*-astra-launch
+```
+
 Bringup depth camera by
 ```
 roslaunch astra_launch astrapro.launch 
@@ -59,13 +72,16 @@ sudo apt-get install ros-*distro*-usb-cam
 ```
 Bring up usb_cam node
 ```
-rosrun usb_cam usb_cam_node _video_device:=/dev/video0 _pixel_format:=yuyv
 roslaunch merlion_bringup astra_rgb.launch
-TODO: udev rules
 ```
 
-In case for permission denied on `/dev/video0`:
+In case for permission denied on `/dev/video0` (or `/dev/video1`)
 ```
 sudo chmod 666 /dev/video0
 ```
-TODO: add udev rule
+
+## Logitech USB Webcam
+Bringup
+```
+roslaunch merlion_bringup logitech_cam.launch
+```
