@@ -1,6 +1,15 @@
 # merlion_sauvc
+
+## Introduction
+Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). This is a ROS-based project.
+
+## Requirements
+- ROS Indigo (Ubuntu 14.04 LTS) or ROS Kinetic (Ubuntu 16.04 LTS)
+- Further ependencies are listed accordingly for each sensors. Replace `*distro*` with `indigo` or `kinetic` accordingly to your specifications.
+
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
+
 IP address 192.168.0.120 was reserved for NUC
 
 From ground PC:
@@ -47,37 +56,15 @@ Also note in the launch file above, change the `dev` parameter to match the usb 
 <param name="dev" value="/dev/input/js0" type="string"/>
 ```
 
-## Astra Camera
-
-### Astra ROS Driver
-
-- https://github.com/orbbec/ros_astra_camera
-
-- https://github.com/orbbec/ros_astra_launch
-
-Dependencies
+## Kinect Sensors
+Install packages
 ```
-sudo apt-get update && sudo apt-get install ros-*distro*-astra-camera ros-*distro*-astra-launch
+sudo apt-get install ros-*distro*-openni-camera ros-*distro*-rgbd-launch ros-*distro*-freenect-stacks
 ```
 
-Bringup depth camera by
+Bringup
 ```
-roslaunch astra_launch astrapro.launch 
-```
-
-### Astra RGB Camera Driver
-Install `usb_cam` driver
-```
-sudo apt-get install ros-*distro*-usb-cam
-```
-Bring up usb_cam node
-```
-roslaunch merlion_bringup astra_rgb.launch
-```
-
-In case for permission denied on `/dev/video0` (or `/dev/video1`)
-```
-sudo chmod 666 /dev/video0
+roslaunch freenect_launch freenect.launch
 ```
 
 ## Logitech USB Webcam
