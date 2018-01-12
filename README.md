@@ -1,12 +1,12 @@
 # merlion_sauvc
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
-IP address 192.168.0.101 was reserved for NUC
+IP address 192.168.0.120 was reserved for NUC
 
 From ground PC:
 ```
 sudo apt-get install powerwake
-powerwake 192.168.0.101
+powerwake 192.168.0.120
 ```
 
 ### udev
@@ -20,7 +20,7 @@ sudo udevadm control --reload-rules && sudo service udev restart && sudo udevadm
 ### SSH
 From ground PC:
 ```
-ssh ugv@192.168.0.101
+ssh ugv@192.168.0.120
 ```
 or
 ```
@@ -29,7 +29,7 @@ ssh ugv@ugv-nuc
 
 Add these lines on ground PC into *~/.bashrc* to work with NUC ROS master
 ```
-export ROS_MASTER_URI=http://192.168.0.101:11311
+export ROS_MASTER_URI=http://192.168.0.120:11311
 export ROS_IP=192.168.0.xxx
 ```
 Remove (comment) those line if you want to work with a local ROS master
