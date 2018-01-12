@@ -7,6 +7,7 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 - ROS Indigo (Ubuntu 14.04 LTS) or ROS Kinetic (Ubuntu 16.04 LTS)
 - Further ependencies are listed accordingly for each sensors. Replace `*distro*` with `indigo` or `kinetic` accordingly to your specifications.
 
+## Setup
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
 
@@ -68,6 +69,11 @@ roslaunch freenect_launch freenect.launch
 ```
 
 ## Logitech USB Webcam
+Install necessary package
+```
+sudo apt-get install ros-*distro*-usb-cam
+```
+
 Bringup
 ```
 roslaunch merlion_bringup logitech_cam.launch
