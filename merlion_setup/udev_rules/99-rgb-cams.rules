@@ -1,5 +1,7 @@
 # Logitech webcam
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", SYMLINK+="logitech_cam", ATTRS{idProduct}=="081b", ATTRS{serial}=="956BC6D0"
 
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", SYMLINK+="logi_c920", ATTRS{idProduct}=="082d", ATTRS{serial}=="6755577F"
+
 # Astra rgb camera
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="2bc5", MODE="0666", SYMLINK+="astra_rgb_cam", ATTRS{idProduct}=="0501"

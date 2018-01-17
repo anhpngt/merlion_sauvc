@@ -8,6 +8,5 @@ sudo cp ./* /etc/udev/rules.d/
 
 Restart `udev` service
 ```
-sudo service udev reload
-sudo service udev restart
+sudo udevadm control --reload-rules && sudo service udev restart && sudo udevadm trigger
 ```
