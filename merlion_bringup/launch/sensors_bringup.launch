@@ -1,11 +1,18 @@
 <launch>
-    <arg name="use_logitech_cam" default="true"/>
-    <arg name="use_astra_rgbcam" default="true"/>
+    <arg name="use_logi_c310" default="true"/>
+    <arg name="use_logi_c920" default="true"/>
+    <arg name="use_astra_rgbcam" default="false"/>
 
-    <include if="$(arg use_logitech_cam)"
-        file="$(find merlion_bringup)/launch/logitech_cam.launch">
+    <include if="$(arg use_logi_c920)"
+        file="$(find merlion_bringup)/launch/logi_c920.launch">
     </include>
+
+    <include if="$(arg use_logi_c310)"
+        file="$(find merlion_bringup)/launch/logi_c310.launch">
+    </include>
+
     <include if="$(arg use_astra_rgbcam)"
         file="$(find merlion_bringup)/launch/astra_rgb.launch">
     </include>
+
 </launch>

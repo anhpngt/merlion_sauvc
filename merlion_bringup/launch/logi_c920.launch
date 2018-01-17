@@ -5,7 +5,7 @@
     name="usb_cam_node"
     output="screen"
     ns="logitech" >
-    <param name="video_device" value="/dev/logitech_cam" />
+    <param name="video_device" value="/dev/logi_c920" />
     <param name="image_width" value="640" />
     <param name="image_height" value="480" />
     <param name="pixel_format" value="yuyv" />
