@@ -1,2 +1,2 @@
 #!/bin/bash
-rosbag record --output-prefix=TEST --buffsize=0 --bz2 -a
+rosbag record --output-prefix=AUV --bz2 --buffsize=0 /logi_c310/usb_cam_node/camera_info /logi_c310/usb_cam_node/image_raw /logi_c920/usb_cam_node/camera_info /logi_c920/usb_cam_node/image_raw
