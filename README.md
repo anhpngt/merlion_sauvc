@@ -5,7 +5,7 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 
 ## Requirements
 - ROS Indigo (Ubuntu 14.04 LTS) or ROS Kinetic (Ubuntu 16.04 LTS)
-- Further ependencies are listed accordingly for each sensors. Replace `*distro*` with `indigo` or `kinetic` accordingly to your specifications.
+- Further dependencies are listed accordingly for each sensors. Replace `*distro*` with `indigo` or `kinetic` accordingly to your specifications.
 
 ## Setup
 ### Wake-on-LAN
@@ -60,7 +60,7 @@ Also note in the launch file above, change the `dev` parameter to match the usb 
 ## Kinect Sensors
 Install packages
 ```
-sudo apt-get install ros-*distro*-openni-camera ros-*distro*-rgbd-launch ros-*distro*-freenect-stacks
+sudo apt-get install ros-*distro*-openni-camera ros-*distro*-rgbd-launch ros-*distro*-freenect-stack
 ```
 
 Bringup
