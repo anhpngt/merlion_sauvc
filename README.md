@@ -35,12 +35,12 @@ Software:
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
 
-IP address 192.168.0.120 was reserved for NUC
+IP address 192.168.1.119 was reserved for NUC
 
 From ground PC:
 ```
 sudo apt-get install powerwake
-powerwake 192.168.0.120
+powerwake 192.168.1.119
 ```
 
 ### udev
@@ -54,7 +54,7 @@ sudo udevadm control --reload-rules && sudo service udev restart && sudo udevadm
 ### SSH
 From ground PC:
 ```
-ssh ugv@192.168.0.120
+ssh ugv@192.168.1.119
 ```
 or
 ```
@@ -63,12 +63,12 @@ ssh ugv@ugv-nuc
 
 Add these lines on ground PC into *~/.bashrc* to work with NUC ROS master
 ```
-export ROS_MASTER_URI=http://192.168.0.120:11311
-export ROS_IP=192.168.0.xxx
+export ROS_MASTER_URI=http://192.168.1.119:11311
+export ROS_IP=192.168.1.xxx
 ```
 Remove (comment) those line if you want to work with a local ROS master
 
-## Manual Motor Control
+### Manual Motor Control
 ```
 roslaunch bluerov bluerov_r1.launch
 ```
@@ -81,18 +81,7 @@ Also note in the launch file above, change the `dev` parameter to match the usb 
 <param name="dev" value="/dev/input/js0" type="string"/>
 ```
 
-## Kinect Sensors
-Install packages
-```
-sudo apt-get install ros-*distro*-openni-camera ros-*distro*-rgbd-launch ros-*distro*-freenect-stack
-```
-
-Bringup
-```
-roslaunch freenect_launch freenect.launch
-```
-
-## Logitech USB Webcam
+### Logitech USB Webcam
 Install necessary package
 ```
 sudo apt-get install ros-*distro*-usb-cam

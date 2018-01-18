@@ -1,6 +1,6 @@
 ## Astra Camera
 
-Orbbec Astra Camera will no longer be used. This is archived for future reference.
+Orbbec Astra Camera and Kinect Sensor will no longer be used. This is archived for future reference.
 
 ### Astra ROS Driver
 
@@ -31,4 +31,15 @@ roslaunch merlion_bringup astra_rgb.launch
 In case for permission denied on `/dev/video0` (or `/dev/video1`)
 ```
 sudo chmod 666 /dev/video0
+```
+
+## Kinect Sensors
+Install packages
+```
+sudo apt-get install ros-*distro*-openni-camera ros-*distro*-rgbd-launch ros-*distro*-freenect-stack
+```
+
+Bringup
+```
+roslaunch freenect_launch freenect.launch
 ```
