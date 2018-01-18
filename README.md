@@ -9,22 +9,22 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 
 ### TODO list
 Hardware:
-- [] Acoustics
-- [] Depth sensor
-- [] EStop/Kill switch
-- [] Frames
-- [] Servo
+- [ ] Acoustics
+- [ ] Depth sensor
+- [ ] EStop/Kill switch
+- [ ] Frames
+- [ ] Servo
 
 Software:
-- [] Mission Manager
-- [] Qualification node
-- [] Mission 1 node
-- [] Mission 2 node
-- [] Mission 3 node
-- [] Object detection, shape/color-based
-- [] Object detection, deep learning
-- [] Vel_controller
-- [] SLAM
+- [ ] Mission Manager
+- [ ] Qualification node
+- [ ] Mission 1 node
+- [ ] Mission 2 node
+- [ ] Mission 3 node
+- [ ] Object detection, shape/color-based
+- [ ] Object detection, deep learning
+- [ ] Vel_controller
+- [ ] SLAM
 
 
 ## Requirements
