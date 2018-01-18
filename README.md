@@ -3,6 +3,30 @@
 ## Introduction
 Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). This is a ROS-based project.
 
+## Goals
+
+**Upcoming test on Sat, 20 Jan**
+
+### TODO list
+Hardware:
+- [] Acoustics
+- [] Depth sensor
+- [] EStop/Kill switch
+- [] Frames
+- [] Servo
+
+Software:
+- [] Mission Manager
+- [] Qualification node
+- [] Mission 1 node
+- [] Mission 2 node
+- [] Mission 3 node
+- [] Object detection, shape/color-based
+- [] Object detection, deep learning
+- [] Vel_controller
+- [] SLAM
+
+
 ## Requirements
 - ROS Indigo (Ubuntu 14.04 LTS) or ROS Kinetic (Ubuntu 16.04 LTS)
 - Further dependencies are listed accordingly for each sensors. Replace `*distro*` with `indigo` or `kinetic` accordingly to your specifications.
