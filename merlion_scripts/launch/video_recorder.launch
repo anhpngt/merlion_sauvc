@@ -1,0 +1,15 @@
+<launch>
+  <arg name="image" default="/usb_cam/image_raw"/>
+  <arg name="filename" default="output.avi"/>
+  <arg name="fps" default="30"/>
+  <arg name="codec" default="MJPG"/>
+  <arg name="encoding" default="bgr8"/>
+
+  <node pkg="image_view" type="video_recorder" name="video_recorder" respawn="true" output="screen">
+    <remap from="image" to="$(arg image)"/>
+    <param name="filename" value="$(arg filename)" />
+    <param name="fps" value="$(arg fps)" />
+    <param name="codec" value="$(arg codec)" />
+    <param name="encoding" value="$(arg encoding)" />
+  </node>
+</launch>

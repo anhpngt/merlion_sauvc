@@ -5,8 +5,6 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 
 ## Goals
 
-**Upcoming test on Sat, 20 Jan**
-
 ### TODO list
 Hardware:
 - [ ] Acoustics
@@ -70,8 +68,9 @@ Remove (comment) those line if you want to work with a local ROS master
 
 ### Manual Motor Control
 ```
-roslaunch bluerov bluerov_r1.launch
+roslaunch bluerov apm.launch
 ```
+
 In ground PC, plug in the joystick and do
 ```
 roslaunch bluerov_apps teleop_f310.launch
