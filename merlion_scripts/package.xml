@@ -1,0 +1,11 @@
+<package>
+  <name>merlion_scripts</name>
+  <version>0.0.0</version>
+  <description>Utility package for Merlion</description>
+  <author email="phamngtuananh@gmail.com">Tuan Anh</author>
+  <license>BSD</license>
+  <maintainer email="phamngtuananh@gmail.com">Tuan Anh</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+</package>
