@@ -1,12 +1,12 @@
 %YAML:1.0
 
-CannyEdge.threshold1: 50
+CannyEdge.threshold1: 80
 CannyEdge.threshold2: 200
 CannyEdge.apertureSize: 3
 CannyEdge.L2gradient: 0
 
 HoughLinesP.rho: 1
-HoughLinesP.theta: 0.03490658503 # pi/90
-HoughLinesP.threshold: 80
+HoughLinesP.theta: 0.01745329251 # pi/180
+HoughLinesP.threshold: 200
 HoughLinesP.minLineLength: 30
 HoughLinesP.maxLineGap: 10

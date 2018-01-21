@@ -49,8 +49,7 @@ int main(int argc, char **argv)
   double houghlp_maxlinegap = (double)fs["HoughLinesP.maxLineGap"];
 
   // Process
-  cv::namedWindow("orignal", 1);
-  cv::namedWindow("detection", 1);
+  cv::namedWindow("image", 1);
   cv::startWindowThread();
   for(;;)
   {
@@ -58,7 +57,7 @@ int main(int argc, char **argv)
     capture >> frame_src;
     if (frame_src.empty())
     {
-      std::cout << "End of video." << std::endl;
+      std::cout << "\nEnd of video." << std::endl;
       break;
     }
 
@@ -78,10 +77,10 @@ int main(int argc, char **argv)
       cv::line(frame_src, cv::Point(lines[i][0], lines[i][1]), cv::Point(lines[i][2], lines[i][3]), cv::Scalar(c1, c2, c3), 2, 8);
     }
 
-    cv::imshow("orignal", frame_src);
-    cv::imshow("detection", frame_color);
+    cv::hconcat(frame_src, frame_color, frame_src);
+    cv::imshow("image", frame_src);
     std::cout << "\rFrame took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - t1).count() / 1000.0 << "ms" << std::flush;
-    cv::waitKey(25); // waits to display frame
+    cv::waitKey(5); // waits to display frame
   }
   cv::waitKey(0);
   return 0;
