@@ -71,7 +71,7 @@ Remove (comment) those line if you want to work with a local ROS master
 roslaunch bluerov apm.launch
 ```
 
-In ground PC, plug in the joystick and do
+In ground PC, plug in the joystick and use QGroundControl or ros teleop
 ```
 roslaunch bluerov_apps teleop_f310.launch
 ```
@@ -88,5 +88,6 @@ sudo apt-get install ros-*distro*-usb-cam
 
 Bringup
 ```
-roslaunch merlion_bringup logitech_cam.launch
+roslaunch merlion_bringup sensors.launch
+roslaunch merlion_bringup image_view.launch
 ```
