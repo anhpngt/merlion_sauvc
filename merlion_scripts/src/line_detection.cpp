@@ -33,20 +33,20 @@ int main(int argc, char **argv)
   }
 
   // Get params
-  cv::FileStorage fs(ros::package::getPath("merlion_scripts") + "/configs/opencv.yaml", cv::FileStorage::READ);
+  cv::FileStorage fs(ros::package::getPath("merlion_scripts") + "/configs/line_detection.yaml", cv::FileStorage::READ);
 
   // Canny
   double canny_threshold1 = (double)fs["CannyEdge.threshold1"];
   double canny_threshold2 = (double)fs["CannyEdge.threshold2"];
   int canny_aperture_size = (int)fs["CannyEdge.apertureSize"];
   bool canny_L2gradient = (int)fs["CannyEdge.L2gradient"];
-
   // HoughLinesP
   double houghlp_rho = (double)fs["HoughLinesP.rho"];
   double houghlp_theta = (double)fs["HoughLinesP.theta"];
   int houghlp_threshold = (int)fs["HoughLinesP.threshold"];
   double houghlp_minlinelength = (double)fs["HoughLinesP.minLineLength"];
   double houghlp_maxlinegap = (double)fs["HoughLinesP.maxLineGap"];
+  fs.release();  
 
   // Process
   cv::namedWindow("image", 1);
