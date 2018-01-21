@@ -39,7 +39,7 @@ int main(int argc, char **argv)
   fs.release();
 
   // Process
-  cv::namedWindow("image", 1);
+  cv::namedWindow("image", cv::WINDOW_NORMAL);
   cv::startWindowThread();
 
   int hist_size = 256;
@@ -56,49 +56,71 @@ int main(int argc, char **argv)
       break;
     }
 
-    std::vector<cv::Mat> bgr_planes;
-    cv::split(frame_src, bgr_planes);
+    std::vector<cv::Mat> channels;
+    cv::split(frame_src, channels);
 
     // Compute the histograms
-    cv::Mat b_hist, g_hist, r_hist, frame_gr, gray_hist;
+    cv::Mat b_hist, g_hist, r_hist, frame_gr, gray_hist, frame_hsv, h_hist, s_hist, v_hist;
+    cv::calcHist(&channels[0], 1, 0, cv::Mat(), b_hist, 1, &hist_size, &hist_range, true, false);
+    cv::calcHist(&channels[1], 1, 0, cv::Mat(), g_hist, 1, &hist_size, &hist_range, true, false);
+    cv::calcHist(&channels[2], 1, 0, cv::Mat(), r_hist, 1, &hist_size, &hist_range, true, false);
+
     cv::cvtColor(frame_src, frame_gr, cv::COLOR_BGR2GRAY);
-    cv::calcHist(&bgr_planes[0], 1, 0, cv::Mat(), b_hist, 1, &hist_size, &hist_range, true, false);
-    cv::calcHist(&bgr_planes[1], 1, 0, cv::Mat(), g_hist, 1, &hist_size, &hist_range, true, false);
-    cv::calcHist(&bgr_planes[2], 1, 0, cv::Mat(), r_hist, 1, &hist_size, &hist_range, true, false);
     cv::calcHist(&frame_gr, 1, 0, cv::Mat(), gray_hist, 1, &hist_size, &hist_range, true, false);
 
-    // Draw the histograms for B, G, R
-    cv::Mat hist_image(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
-    cv::Mat gray_hist_image(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::cvtColor(frame_src, frame_hsv, cv::COLOR_BGR2HSV);
+    cv::split(frame_hsv, channels);
+    cv::calcHist(&channels[0], 1, 0, cv::Mat(), h_hist, 1, &hist_size, &hist_range, true, false);
+    cv::calcHist(&channels[1], 1, 0, cv::Mat(), s_hist, 1, &hist_size, &hist_range, true, false);
+    cv::calcHist(&channels[2], 1, 0, cv::Mat(), v_hist, 1, &hist_size, &hist_range, true, false);
 
-    /// Normalize the result to [ 0, histImage.rows ]
-    cv::normalize(b_hist, b_hist, 0, hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
-    cv::normalize(g_hist, g_hist, 0, hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
-    cv::normalize(r_hist, r_hist, 0, hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
+    // Draw the histograms for B, G, R
+    cv::Mat bgr_hist_image(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat gray_hist_image(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat hsv_hist_image(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    /// Normalize the result to [0, histImage.rows]
+    cv::normalize(b_hist, b_hist, 0, bgr_hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
+    cv::normalize(g_hist, g_hist, 0, bgr_hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
+    cv::normalize(r_hist, r_hist, 0, bgr_hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
     cv::normalize(gray_hist, gray_hist, 0, gray_hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
+    cv::normalize(h_hist, h_hist, 0, hsv_hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
+    cv::normalize(s_hist, s_hist, 0, hsv_hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
+    cv::normalize(v_hist, v_hist, 0, hsv_hist_image.rows, cv::NORM_MINMAX, -1, cv::Mat());
 
     // Draw for each channel
     for (int i = 1; i < hist_size; i++)
     {
-      cv::line(hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(b_hist.at<float>(i - 1))),
+      cv::line(bgr_hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(b_hist.at<float>(i - 1))),
                cv::Point(bin_w * (i), hist_h - cvRound(b_hist.at<float>(i))),
                cv::Scalar(255, 0, 0), 2, 8, 0);
-      cv::line(hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(g_hist.at<float>(i - 1))),
+      cv::line(bgr_hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(g_hist.at<float>(i - 1))),
                cv::Point(bin_w * (i), hist_h - cvRound(g_hist.at<float>(i))),
                cv::Scalar(0, 255, 0), 2, 8, 0);
-      cv::line(hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(r_hist.at<float>(i - 1))),
+      cv::line(bgr_hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(r_hist.at<float>(i - 1))),
                cv::Point(bin_w * (i), hist_h - cvRound(r_hist.at<float>(i))),
                cv::Scalar(0, 0, 255), 2, 8, 0);
       cv::line(gray_hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(gray_hist.at<float>(i - 1))),
                cv::Point(bin_w * (i), hist_h - cvRound(gray_hist.at<float>(i))),
                cv::Scalar(255, 255, 255), 2, 8, 0);
+      cv::line(hsv_hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(h_hist.at<float>(i - 1))),
+               cv::Point(bin_w * (i), hist_h - cvRound(h_hist.at<float>(i))),
+               cv::Scalar(255, 0, 0), 2, 8, 0);
+      cv::line(hsv_hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(s_hist.at<float>(i - 1))),
+               cv::Point(bin_w * (i), hist_h - cvRound(s_hist.at<float>(i))),
+               cv::Scalar(0, 255, 0), 2, 8, 0);
+      cv::line(hsv_hist_image, cv::Point(bin_w * (i - 1), hist_h - cvRound(v_hist.at<float>(i - 1))),
+               cv::Point(bin_w * (i), hist_h - cvRound(v_hist.at<float>(i))),
+               cv::Scalar(0, 0, 255), 2, 8, 0);
     }
 
     // Visualize
     cv::cvtColor(frame_gr, frame_gr, cv::COLOR_GRAY2BGR);
     cv::hconcat(frame_src, frame_gr, frame_src);
-    cv::hconcat(hist_image, gray_hist_image, hist_image);
-    cv::vconcat(frame_src, hist_image, frame_src);
+    cv::hconcat(frame_src, frame_hsv, frame_src);
+    cv::hconcat(bgr_hist_image, gray_hist_image, bgr_hist_image);
+    cv::hconcat(bgr_hist_image, hsv_hist_image, bgr_hist_image);
+    cv::vconcat(frame_src, bgr_hist_image, frame_src);
     cv::imshow("image", frame_src);
     std::cout << "\rFrame took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - t1).count() / 1000.0 << "ms" << std::flush;
     cv::waitKey(5); // waits to display frame
