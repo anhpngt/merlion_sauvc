@@ -17,7 +17,11 @@ catkin_package(
 
 SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 
-add_executable(line_detection src/line_detection.cpp)
-add_executable(color_hist src/color_hist.cpp)
-target_link_libraries(line_detection ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
-target_link_libraries(color_hist ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+macro(add_new_node name)
+  add_executable(${name} src/${name}.cpp)
+  target_link_libraries(${name} ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+endmacro()
+
+add_new_node(line_detection)
+add_new_node(color_hist)
+add_new_node(adaptive_threshold)

@@ -1,0 +1,7 @@
+%YAML:1.0
+
+AdaptiveThreshold.maxValue: 255
+AdaptiveThreshold.method: 1 # [ADAPTIVE_THRESH_MEAN_C, ADAPTIVE_THRESH_GAUSSIAN_C]
+AdaptiveThreshold.type: 0 # [THRESH_BINARY, THRESH_BINARY_INV]
+AdaptiveThreshold.blockSize: 5 # [3, 5, 7, ...]
+AdaptiveThreshold.C: 0
