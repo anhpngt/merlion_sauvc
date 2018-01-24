@@ -1,6 +1,6 @@
 <launch>
-  <arg name="image" default="/usb_cam/image_raw"/>
-  <arg name="filename" default="$(env HOME)/Desktop/output.avi"/>
+  <arg name="image" default="/logi_c920/usb_cam_node/image_raw"/>
+  <arg name="filename" default="$(env HOME)/pooltest_jan20/forward.avi"/>
   <arg name="fps" default="30"/>
   <arg name="codec" default="MJPG"/>
   <arg name="encoding" default="bgr8"/>
