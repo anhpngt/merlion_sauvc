@@ -1,0 +1,5 @@
+%YAML:1.0
+
+ExtractChannel: 2 # [h, s, v]
+
+Blur.ksize: 5
