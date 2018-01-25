@@ -34,11 +34,14 @@ int main(int argc, char **argv)
   int adT_type = (int)fs["AdaptiveThreshold.type"];
   int adT_blockSize = (int)fs["AdaptiveThreshold.blockSize"];
   double adT_C = (double)fs["AdaptiveThreshold.C"];
+  int select_channel = (int)fs["AdaptiveThreshold.channel"];
+  int morph_ksize = (int)fs["MorphEx.ksize"];
   fs.release();  
 
   // Process
   cv::namedWindow("image", 1);
   cv::startWindowThread();
+  cv::Mat str_el = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(morph_ksize, morph_ksize));
   for(;;)
   {
     std::chrono::time_point<std::chrono::system_clock> t1 = std::chrono::system_clock::now();
@@ -54,8 +57,10 @@ int main(int argc, char **argv)
     std::vector<cv::Mat> channels;
     cv::cvtColor(frame_src, frame_hsv, cv::COLOR_BGR2HSV);
     cv::split(frame_hsv, channels);
-    cv::GaussianBlur(channels[1], channels[1], cv::Size(3, 3), 0);
-    cv::adaptiveThreshold(channels[1], frame_binary, adT_maxValue, adT_method, adT_type, adT_blockSize, adT_C);
+    cv::GaussianBlur(channels[select_channel], channels[select_channel], cv::Size(3, 3), 0);
+    cv::adaptiveThreshold(channels[select_channel], frame_binary, adT_maxValue, adT_method, adT_type, adT_blockSize, adT_C);
+    // cv::morphologyEx(frame_binary, frame_binary, cv::MORPH_CLOSE, str_el);
+    cv::morphologyEx(frame_binary, frame_binary, cv::MORPH_OPEN, str_el);
 
     // Visualize
     cv::cvtColor(frame_binary, frame_binary, cv::COLOR_GRAY2BGR);
