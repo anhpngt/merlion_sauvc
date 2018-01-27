@@ -35,6 +35,7 @@ int main(int argc, char **argv)
   int adT_blockSize = (int)fs["AdaptiveThreshold.blockSize"];
   double adT_C = (double)fs["AdaptiveThreshold.C"];
   int select_channel = (int)fs["AdaptiveThreshold.channel"];
+  int blur_ksize = (int)fs["GaussianBlur.ksize"];
   int morph_ksize = (int)fs["MorphEx.ksize"];
   fs.release();  
 
@@ -53,18 +54,22 @@ int main(int argc, char **argv)
     }
 
     // Find lines
-    cv::Mat frame_hsv, frame_binary, s_frame;
+    cv::Mat frame_hsv, frame_binary, s_frame, frame_selectedchannel, frame_threshold;
     std::vector<cv::Mat> channels;
     cv::cvtColor(frame_src, frame_hsv, cv::COLOR_BGR2HSV);
     cv::split(frame_hsv, channels);
-    cv::GaussianBlur(channels[select_channel], channels[select_channel], cv::Size(3, 3), 0);
+    cv::GaussianBlur(channels[select_channel], channels[select_channel], cv::Size(blur_ksize, blur_ksize), 0);
     cv::adaptiveThreshold(channels[select_channel], frame_binary, adT_maxValue, adT_method, adT_type, adT_blockSize, adT_C);
-    // cv::morphologyEx(frame_binary, frame_binary, cv::MORPH_CLOSE, str_el);
+    cv::cvtColor(frame_binary, frame_threshold, cv::COLOR_GRAY2BGR);
+    cv::morphologyEx(frame_binary, frame_binary, cv::MORPH_CLOSE, str_el);
     cv::morphologyEx(frame_binary, frame_binary, cv::MORPH_OPEN, str_el);
 
     // Visualize
+    cv::cvtColor(channels[select_channel], frame_selectedchannel, cv::COLOR_GRAY2BGR);
     cv::cvtColor(frame_binary, frame_binary, cv::COLOR_GRAY2BGR);
-    cv::hconcat(frame_src, frame_binary, frame_src);
+    cv::hconcat(frame_src, frame_selectedchannel, frame_src);
+    cv::hconcat(frame_threshold, frame_binary, frame_binary);
+    cv::vconcat(frame_src, frame_binary, frame_src);
     cv::imshow("image", frame_src);
     std::cout << "\rFrame took " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - t1).count() / 1000.0 << "ms" << std::flush;
     cv::waitKey(5); // waits to display frame

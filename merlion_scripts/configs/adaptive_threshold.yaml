@@ -4,6 +4,7 @@ AdaptiveThreshold.maxValue: 255
 AdaptiveThreshold.method: 1 # [ADAPTIVE_THRESH_MEAN_C, ADAPTIVE_THRESH_GAUSSIAN_C]
 AdaptiveThreshold.type: 1 # [THRESH_BINARY, THRESH_BINARY_INV]
 AdaptiveThreshold.blockSize: 51 # [3, 5, 7, ...]
-AdaptiveThreshold.C: 4
+AdaptiveThreshold.C: 5
 AdaptiveThreshold.channel: 2 # [h, s, v]
-MorphEx.ksize: 7
+GaussianBlur.ksize: 5
+MorphEx.ksize: 3
