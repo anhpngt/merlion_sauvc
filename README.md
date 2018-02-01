@@ -26,7 +26,8 @@ Software:
 
 
 ## Requirements
-- ROS Kinetic (Ubuntu 16.04 LTS). ROS Indigo (Ubuntu 14.04 LTS) supports have been dropped.
+- ROS Kinetic (Ubuntu 16.04 LTS). 
+  - ROS Indigo (Ubuntu 14.04 LTS) supports have been dropped.
 - Further dependencies are listed accordingly for each sensors.
 
 ## Setup
