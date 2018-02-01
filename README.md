@@ -1,18 +1,59 @@
 # merlion_sauvc
+
+## Introduction
+Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). This is a ROS-based project.
+
+## Goals
+
+### TODO list
+Hardware:
+- [ ] Acoustics
+- [ ] Depth sensor
+- [ ] EStop/Kill switch
+- [ ] Frames
+- [ ] Servo
+
+Software:
+- [ ] Mission Manager
+- [ ] Qualification node
+- [ ] Mission 1 node
+- [ ] Mission 2 node
+- [ ] Mission 3 node
+- [ ] Object detection, shape/color-based
+- [ ] Object detection, deep learning
+- [ ] Vel_controller
+- [ ] SLAM
+
+
+## Requirements
+- ROS Kinetic (Ubuntu 16.04 LTS). 
+  - ROS Indigo (Ubuntu 14.04 LTS) supports have been dropped.
+- Further dependencies are listed accordingly for each sensors.
+
+## Setup
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
-IP address 192.168.0.101 was reserved for NUC
+
+IP address 192.168.1.119 was reserved for NUC
 
 From ground PC:
 ```
 sudo apt-get install powerwake
-powerwake 192.168.0.101
+powerwake 192.168.1.119
+```
+
+### udev
+Udev rules files are stored in `merlion_setup/udev_rules`.
+
+After adding the necessary rules into `/etc/udev/rules.d/`, do
+```
+sudo udevadm control --reload-rules && sudo service udev restart && sudo udevadm trigger
 ```
 
 ### SSH
 From ground PC:
 ```
-ssh ugv@192.168.0.101
+ssh ugv@192.168.1.119
 ```
 or
 ```
@@ -21,16 +62,17 @@ ssh ugv@ugv-nuc
 
 Add these lines on ground PC into *~/.bashrc* to work with NUC ROS master
 ```
-export ROS_MASTER_URI=http://192.168.0.101:11311
-export ROS_IP=192.168.0.xxx
+export ROS_MASTER_URI=http://192.168.1.119:11311
+export ROS_IP=192.168.1.xxx
 ```
 Remove (comment) those line if you want to work with a local ROS master
 
-## Manual Motor Control
+### Manual Motor Control
 ```
-roslaunch bluerov bluerov_r1.launch
+roslaunch bluerov apm.launch
 ```
-In ground PC, plug in the joystick and do
+
+In ground PC, plug in the joystick and use QGroundControl or ros teleop
 ```
 roslaunch bluerov_apps teleop_f310.launch
 ```
@@ -39,33 +81,14 @@ Also note in the launch file above, change the `dev` parameter to match the usb 
 <param name="dev" value="/dev/input/js0" type="string"/>
 ```
 
-## Astra Camera
-
-### Astra ROS Driver
-
-- https://github.com/orbbec/ros_astra_camera
-
-- https://github.com/orbbec/ros_astra_launch
-
-Bringup depth camera by
+### Logitech USB Webcam
+Install necessary package
 ```
-roslaunch astra_launch astrapro.launch 
+sudo apt-get install ros-kinetic-usb-cam
 ```
 
-### Astra RGB Camera Driver
-Install `usb_cam` driver
+Bringup
 ```
-sudo apt-get install ros-*distro*-usb-cam
+roslaunch merlion_bringup sensors.launch
+roslaunch merlion_bringup image_view.launch
 ```
-Bring up usb_cam node
-```
-rosrun usb_cam usb_cam_node _video_device:=/dev/video0 _pixel_format:=yuyv
-roslaunch merlion_bringup astra_rgb.launch
-TODO: udev rules
-```
-
-In case for permission denied on `/dev/video0`:
-```
-sudo chmod 666 /dev/video0
-```
-TODO: add udev rule
