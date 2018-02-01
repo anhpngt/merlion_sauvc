@@ -15,6 +15,11 @@ catkin_package(
   # DEPENDS system_lib
 )
 
+include_directories(
+# include
+  ${catkin_INCLUDE_DIRS}
+)
+
 SET(CMAKE_CXX_FLAGS "-std=c++11 -O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 
 macro(add_new_node name)

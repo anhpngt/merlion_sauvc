@@ -26,8 +26,8 @@ Software:
 
 
 ## Requirements
-- ROS Indigo (Ubuntu 14.04 LTS) or ROS Kinetic (Ubuntu 16.04 LTS)
-- Further dependencies are listed accordingly for each sensors. Replace `*distro*` with `indigo` or `kinetic` accordingly to your specifications.
+- ROS Kinetic (Ubuntu 16.04 LTS). ROS Indigo (Ubuntu 14.04 LTS) supports have been dropped.
+- Further dependencies are listed accordingly for each sensors.
 
 ## Setup
 ### Wake-on-LAN
@@ -83,7 +83,7 @@ Also note in the launch file above, change the `dev` parameter to match the usb 
 ### Logitech USB Webcam
 Install necessary package
 ```
-sudo apt-get install ros-*distro*-usb-cam
+sudo apt-get install ros-kinetic-usb-cam
 ```
 
 Bringup
