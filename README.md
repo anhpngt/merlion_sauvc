@@ -30,6 +30,12 @@ Software:
   - ROS Indigo (Ubuntu 14.04 LTS) supports have been dropped.
 - Further dependencies are listed accordingly for each sensors.
 
+```
+sudo apt-get install ros-kinetic-usb-cam ros-kinetic-mavros
+```
+
+Additionally, install `bluerov` package from [source](https://github.com/bluerobotics/bluerov-ros-pkg#installation-from-source) (apt does not work).
+
 ## Setup
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
@@ -82,12 +88,6 @@ Also note in the launch file above, change the `dev` parameter to match the usb 
 ```
 
 ### Logitech USB Webcam
-Install necessary package
-```
-sudo apt-get install ros-kinetic-usb-cam
-```
-
-Bringup
 ```
 roslaunch merlion_bringup sensors.launch
 roslaunch merlion_bringup image_view.launch
