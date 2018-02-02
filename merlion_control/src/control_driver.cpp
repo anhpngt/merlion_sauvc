@@ -14,6 +14,7 @@ string topic_sub_cmd_vel = "/merlion/control/cmd_vel";
 string topic_pub_control = "/mavros/rc/override";
 
 ros::ServiceClient cmd_client;
+ros::ServiceClient set_mode_client;
 enum {COMPONENT_ARM_DISARM=400}; // https://pixhawk.ethz.ch/mavlink/
 
 double lin_max_vel  = 2.0; // m/s
@@ -67,6 +68,7 @@ uint16_t mapToPpm(double _in, double _max, double _min);
 double normalize(double _in, double _max, double _min);
 bool check_rising_edge(int channel);
 void setArming(bool arm);
+void setMode(string mode);
 
 int main(int argc, char** argv){
     ros::init(argc, argv, node_name);
@@ -84,6 +86,7 @@ int main(int argc, char** argv){
     pub_control = nh.advertise<mavros_msgs::OverrideRCIn>(topic_pub_control, 10);
 
     cmd_client = nh.serviceClient<mavros_msgs::CommandLong>("/mavros/cmd/command");
+    set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
 
     ros::Rate loop_rate(50);
 
@@ -148,12 +151,14 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
 
         if (check_rising_edge(chan_btn_man)){
             mode = MODE_MANUAL;
-            ROS_WARN("CHANGE MODE: MANUAL");
+            ROS_WARN("Attemp changing mode: MANUAL");
+            setMode("MANUAL");
         }
 
         if (check_rising_edge(chan_btn_sta)){
             mode = MODE_STABILIZE;
-            ROS_WARN("CHANGE MODE: STABILIZED");   
+            ROS_WARN("Attemp changing mode: STABILIZED");   
+            setMode("MANUAL");
         }
 
         if (check_rising_edge(chan_btn_alt)){
@@ -192,6 +197,17 @@ void setArming(bool arm) {
   else {
     ROS_ERROR("Failed to update arming");
   }
+}
+
+void setMode(string mode){
+    mavros_msgs::SetMode set_mode_cmd;
+    set_mode_cmd.request.custom_mode = mode;
+
+    if( set_mode_client.call(set_mode_cmd) && set_mode_cmd.response.mode_sent){
+        ROS_WARN("Mode set: %s", mode);
+    } else {
+        ROS_ERROR("Failed to set mode: %s", mode);
+    }
 }
 
 uint16_t mapToPpm(double _in, double _max, double _min) {
