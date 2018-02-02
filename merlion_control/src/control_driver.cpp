@@ -3,6 +3,7 @@
 #include <geometry_msgs/Twist.h>
 #include <mavros_msgs/OverrideRCIn.h>
 #include <mavros_msgs/CommandLong.h>
+#include <mavros_msgs/SetMode.h>
 #include <sensor_msgs/Joy.h>
 
 using namespace std;
@@ -29,7 +30,7 @@ double rot_x_scaling = 1.0;
 double rot_y_scaling = 1.0;
 double rot_z_scaling = 1.0;
 
-double reverses[8] = {
+double directions[7] = {
     1.0,    // pitch
     1.0,    // roll
     1.0,    // throttle
@@ -37,8 +38,13 @@ double reverses[8] = {
     1.0,    // mode
     1.0,    // longitudinal
     1.0,    // lateral
-    1.0     // camera tilt
 };
+double dir_y = 1.0;   // x
+double dir_x = 1.0;   // y
+double dir_z = 1.0;   // z
+double dir_wx = 1.0;   // wy
+double dir_wy = 1.0;   // wx
+double dir_wz = 1.0;   // wz
 
 double cmd_vel_timeout = 1.0; // sec
 ros::Time last_stamp_cmd_vel;
@@ -80,13 +86,20 @@ int main(int argc, char** argv){
     nh_param.param<double>("cmd_vel_timeout", cmd_vel_timeout, cmd_vel_timeout);
 	nh_param.param<std::string>("topic_sub_joy", topic_sub_joy, topic_sub_joy);
 
+    nh_param.param<double>("dir_y", directions[6], directions[6]);
+    nh_param.param<double>("dir_x", directions[5], directions[5]);
+    nh_param.param<double>("dir_z", directions[2], directions[2]);
+    nh_param.param<double>("dir_wx", directions[1], directions[1]);
+    nh_param.param<double>("dir_wy", directions[0], directions[0]);
+    nh_param.param<double>("dir_wz", directions[3], directions[3]);
+
     ros::Subscriber sub_cmd_vel = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel, 10, cb_cmd_vel);
 	ros::Subscriber sub_joy = nh.subscribe<sensor_msgs::Joy>(topic_sub_joy, 10, cb_joy_signal);
 
     pub_control = nh.advertise<mavros_msgs::OverrideRCIn>(topic_pub_control, 10);
 
     cmd_client = nh.serviceClient<mavros_msgs::CommandLong>("/mavros/cmd/command");
-    set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
+    set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
 
     ros::Rate loop_rate(50);
 
@@ -108,23 +121,22 @@ void send_control_cmd(bool in_plane){
     if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() < cmd_vel_timeout){
         mavros_msgs::OverrideRCIn msg;
 
-        msg.channels[5] = mapToPpm(reverses[5] * lin_x_scaling * curr_cmd_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
-        msg.channels[6] = mapToPpm(reverses[6] * lin_y_scaling * curr_cmd_vel.linear.y, lin_max_vel, lin_min_vel);     // strafe   (y)
-        msg.channels[2] = mapToPpm(reverses[2] * lin_z_scaling * curr_cmd_vel.linear.z, lin_max_vel, lin_min_vel);     // throttle (z)
-        msg.channels[3] = mapToPpm(reverses[3] * rot_z_scaling * curr_cmd_vel.angular.z, rot_max_vel, rot_min_vel);    // yaw      (wz)
+        msg.channels[5] = mapToPpm(directions[5] * lin_x_scaling * curr_cmd_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
+        msg.channels[6] = mapToPpm(directions[6] * lin_y_scaling * curr_cmd_vel.linear.y, lin_max_vel, lin_min_vel);     // strafe   (y)
+        msg.channels[2] = mapToPpm(directions[2] * lin_z_scaling * curr_cmd_vel.linear.z, lin_max_vel, lin_min_vel);     // throttle (z)
+        msg.channels[3] = mapToPpm(directions[3] * rot_z_scaling * curr_cmd_vel.angular.z, rot_max_vel, rot_min_vel);    // yaw      (wz)
 
         if (in_plane) {
             msg.channels[1] = 1500; // roll     (wx)
             msg.channels[0] = 1500; // pitch    (wy)
         
         } else {
-            msg.channels[1] = mapToPpm(reverses[1] * rot_x_scaling * curr_cmd_vel.angular.x, rot_max_vel, rot_min_vel); // roll     (wx)
-            msg.channels[0] = mapToPpm(reverses[0] * rot_y_scaling * curr_cmd_vel.angular.y, rot_max_vel, rot_min_vel); // pitch    (wy)
+            msg.channels[1] = mapToPpm(directions[1] * rot_x_scaling * curr_cmd_vel.angular.x, rot_max_vel, rot_min_vel); // roll     (wx)
+            msg.channels[0] = mapToPpm(directions[0] * rot_y_scaling * curr_cmd_vel.angular.y, rot_max_vel, rot_min_vel); // pitch    (wy)
         }
         
-        msg.channels[4] = mode; // mode
-        msg.channels[7] = 0.0;
-        // msg.channels[7] = camera_tilt; // camera tilt
+        msg.channels[4] = 1500; // mode         - not used (change to service)
+        msg.channels[7] = 1500; // camera-tilt  - not used
 
         pub_control.publish(msg);
 
@@ -151,19 +163,20 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
 
         if (check_rising_edge(chan_btn_man)){
             mode = MODE_MANUAL;
-            ROS_WARN("Attemp changing mode: MANUAL");
+            ROS_INFO("Attemp changing mode: MANUAL");
             setMode("MANUAL");
         }
 
         if (check_rising_edge(chan_btn_sta)){
             mode = MODE_STABILIZE;
-            ROS_WARN("Attemp changing mode: STABILIZED");   
-            setMode("MANUAL");
+            ROS_INFO("Attemp changing mode: STABILIZE");   
+            setMode("STABILIZE");
         }
 
         if (check_rising_edge(chan_btn_alt)){
             mode = MODE_ALT_HOLD;
-            ROS_WARN("CHANGE MODE: ALTITUDE HOLD");   
+            ROS_INFO("Attemp changing mode: ALT_HOLD");   
+            setMode("ALT_HOLD");
         }
     }
 }
@@ -204,9 +217,9 @@ void setMode(string mode){
     set_mode_cmd.request.custom_mode = mode;
 
     if( set_mode_client.call(set_mode_cmd) && set_mode_cmd.response.mode_sent){
-        ROS_WARN("Mode set: %s", mode);
+        ROS_WARN("Mode set: %s", mode.c_str());
     } else {
-        ROS_ERROR("Failed to set mode: %s", mode);
+        ROS_ERROR("Failed to set mode: %s", mode.c_str());
     }
 }
 
