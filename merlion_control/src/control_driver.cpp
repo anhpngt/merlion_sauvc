@@ -114,8 +114,8 @@ void send_control_cmd(bool in_plane){
         msg.channels[3] = mapToPpm(reverses[3] * rot_z_scaling * curr_cmd_vel.angular.z, rot_max_vel, rot_min_vel);    // yaw      (wz)
 
         if (in_plane) {
-            msg.channels[1] = 0.0; // roll     (wx)
-            msg.channels[0] = 0.0; // pitch    (wy)
+            msg.channels[1] = 1500; // roll     (wx)
+            msg.channels[0] = 1500; // pitch    (wy)
         
         } else {
             msg.channels[1] = mapToPpm(reverses[1] * rot_x_scaling * curr_cmd_vel.angular.x, rot_max_vel, rot_min_vel); // roll     (wx)
