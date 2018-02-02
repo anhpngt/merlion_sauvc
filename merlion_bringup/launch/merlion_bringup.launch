@@ -1,11 +1,22 @@
 <?xml version="1.0"?>
 <launch>
-    <node pkg="merlion_control"    type="control_driver"   name="control_driver" output="screen"/>
-    <node pkg="merlion_control"    type="joy_driver"     name="joy_driver"  output="screen"/>
-    <node pkg="joy"    type="joy_node"     name="joy_node"  output="screen"/>
+    <node pkg="merlion_control"     type="joy_driver"       name="joy_driver"       output="screen"/>
+    <node pkg="joy"                 type="joy_node"         name="joy_node"         output="screen"/>
+    
+    <node pkg="merlion_control"     type="control_driver"   name="control_driver"   output="screen">
+        <param name="dir_y" value="-1.0"/>
+        <param name="dir_x" value="-1.0"/>
+        <param name="dir_z" value="1.0"/>
+        <param name="dir_wx" value="1.0"/>
+        <param name="dir_wy" value="1.0"/>
+        <param name="dir_wz" value="1.0"/>
+    </node>
+    
+    <arg name="local_ip" default="127.0.0.1"/>
+    <arg name="remote_ip" default="127.0.0.1"/>
 
     <arg name="fcu_url" default="/dev/ttyUSB0:115200"/>
-    <arg name="gcs_url" default="udp://127.0.0.1:14555@127.0.0.1:14550"/>
+    <arg name="gcs_url" default="udp://$(arg local_ip):14555@$(arg remote_ip):14550"/>
     <arg name="system_id" default="255"/>
     <arg name="component_id" default="240"/>
     <arg name="tgt_system" default="1"/>
