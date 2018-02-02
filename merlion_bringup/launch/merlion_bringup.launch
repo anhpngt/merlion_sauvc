@@ -1,8 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-    <node pkg="merlion_control"     type="joy_driver"       name="joy_driver"       output="screen"/>
-    <node pkg="joy"                 type="joy_node"         name="joy_node"         output="screen"/>
-    
     <node pkg="merlion_control"     type="control_driver"   name="control_driver"   output="screen">
         <param name="dir_y" value="-1.0"/>
         <param name="dir_x" value="-1.0"/>
