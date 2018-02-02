@@ -13,13 +13,13 @@ from visualization_msgs.msg import MarkerArray, Marker
 
 import time
 
-from sklearn.cluster import DBSCAN, KMeans
-from sklearn import metrics
-from sklearn.metrics.pairwise import euclidean_distances, manhattan_distances
-from sklearn.preprocessing import StandardScaler, normalize
+# from sklearn.cluster import DBSCAN, KMeans
+# from sklearn import metrics
+# from sklearn.metrics.pairwise import euclidean_distances, manhattan_distances
+# from sklearn.preprocessing import StandardScaler, normalize
 import random
 
-import hdbscan
+# import hdbscan
 
 #################################
 ##############class##############

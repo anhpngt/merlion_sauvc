@@ -13,6 +13,10 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mavros
   mavros_msgs
+  image_transport
+  cv_bridge
+  nav_msgs
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -137,6 +141,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(control_driver src/control_driver.cpp)
 add_executable(joy_driver src/joy_driver.cpp)
+add_executable(rotate_img src/rotate_img.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -151,6 +156,7 @@ add_executable(joy_driver src/joy_driver.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(control_driver ${catkin_LIBRARIES} )
 target_link_libraries(joy_driver ${catkin_LIBRARIES} )
+target_link_libraries(rotate_img ${catkin_LIBRARIES} )
 
 #############
 ## Install ##
