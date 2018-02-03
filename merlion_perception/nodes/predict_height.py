@@ -5,8 +5,8 @@ import math
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
-from geometry_msgs.msg import Pose, Point, Quaternion, Twist, PoseArray
-from sensor_msgs.msg import PointCloud2, Image
+from geometry_msgs.msg import Pose, Point, Quaternion, Twist, PoseArray, Vector3
+from sensor_msgs.msg import PointCloud2, Image, Imu
 from nav_msgs.msg import Odometry
 
 from visualization_msgs.msg import MarkerArray, Marker
@@ -33,20 +33,28 @@ class PredictHeight(object):
 
     tiles=[]
     colors=[]
+
+    imu_yaw=0
+
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
         self.bridge = CvBridge()
         self.init_colors()
-        rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 10)
+        rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
+        rospy.Subscriber("/corrected_imu", Vector3, self.imu_callback, queue_size=1)
 
         self.img_pub=rospy.Publisher('/floor_img', Image, queue_size=1)
         self.vodom_pub=rospy.Publisher('/visual_odom', Odometry, queue_size=1)
+
         
         rate=rospy.Rate(10)
 
         while not rospy.is_shutdown():
             rate.sleep()
 
+    def imu_callback(self, msg):
+        # msg.orientation
+        roll, pitch, self.imu_yaw=msg.x, msg.y, msg.z
 
     def img_callback(self, msg):
         # print(len(self.tiles))
@@ -71,23 +79,24 @@ class PredictHeight(object):
             opening = cv2.dilate(opening, None, iterations=1)
 
             #fit lines to extract major direction
-            minLineLength=200
-            lines = cv2.HoughLinesP(image=opening,rho=1,theta=np.pi/180,\
-             threshold=100,lines=np.array([]), minLineLength=minLineLength, maxLineGap=12)
+            # minLineLength=200
+            # lines = cv2.HoughLinesP(image=opening,rho=1,theta=np.pi/180,\
+            #  threshold=100,lines=np.array([]), minLineLength=minLineLength, maxLineGap=12)
             
-            grad=np.zeros((len(lines), 1))
-            i=0
-            for line in lines:
-                #find two major gradients            
-                x1, y1, x2, y2=line[0][0], line[0][1], line[0][2], line[0][3]
-                theta=math.atan(float(y2-y1)/(x2-x1))*180/math.pi
-                grad[i]=theta
-                i+=1
-                # cv2.line(res, (x1, y1), (x2, y2), (0, 0, 255), 3, cv2.LINE_AA)
-            hist, bin_edges = np.histogram(grad, density=False)
-            ind=np.argmax(hist)
-            best_grad=round((bin_edges[ind]+bin_edges[ind+1])/2, 2)
+            # grad=np.zeros((len(lines), 1))
+            # i=0
+            # for line in lines:
+            #     #find two major gradients            
+            #     x1, y1, x2, y2=line[0][0], line[0][1], line[0][2], line[0][3]
+            #     theta=math.atan(float(y2-y1)/(x2-x1))*180/math.pi
+            #     grad[i]=theta
+            #     i+=1
+            #     # cv2.line(res, (x1, y1), (x2, y2), (0, 0, 255), 3, cv2.LINE_AA)
+            # hist, bin_edges = np.histogram(grad, density=False)
+            # ind=np.argmax(hist)
+            # best_grad=round((bin_edges[ind]+bin_edges[ind+1])/2, 2)
             # print(best_grad)
+            best_grad=self.imu_yaw
 
             #find area of rectangle
             contour_mask=255-opening
