@@ -29,5 +29,7 @@ include_directories(
 )
 
 add_executable(gate_thresholder src/gate_thresholder.cpp)
+add_executable(flare_detector src/flare_detector.cpp)
 
 target_link_libraries(gate_thresholder ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(flare_detector ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})

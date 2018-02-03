@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+
+<launch>
+  <arg name="camera_image_topic" default="/logi_c920/usb_cam_node/image_raw" />
+  <arg name="result_image_topic" default="/flare/image" />
+  <arg name="adT_maxValue" default="255" />
+  <arg name="adT_C" default="3" />
+  <arg name="adT_method" default="1" />
+  <arg name="adT_type" default="1" />
+  <arg name="adT_blockSize" default="51" />
+  <arg name="select_channel" default="1" />
+  <arg name="blur_ksize" default="5" />
+  <arg name="morph_ksize" default="3" />
+  
+  <node pkg="merlion_perception" type="flare_detector" name="flare_detector" output="screen" >
+    <param name="camera_image_topic" value="$(arg camera_image_topic)" />
+    <param name="result_image_topic" value="$(arg result_image_topic)" />
+    <param name="adT_maxValue" value="$(arg adT_maxValue)" />
+    <param name="adT_C" value="$(arg adT_C)" />
+    <param name="adT_method" value="$(arg adT_method)" />
+    <param name="adT_type" value="$(arg adT_type)" />
+    <param name="adT_blockSize" value="$(arg adT_blockSize)" />
+    <param name="select_channel" value="$(arg select_channel)" />
+    <param name="blur_ksize" value="$(arg blur_ksize)" />
+    <param name="morph_ksize" value="$(arg morph_ksize)" />
+  </node>
+</launch>
