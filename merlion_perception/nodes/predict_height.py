@@ -34,13 +34,15 @@ class PredictHeight(object):
     tiles=[]
     colors=[]
 
+    imu_roll=0
+    imu_pitch=0
     imu_yaw=0
-
+    first=True
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
         self.bridge = CvBridge()
         self.init_colors()
-        rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
+        rospy.Subscriber("/image_rotated", Image, self.img_callback, queue_size = 1)
         rospy.Subscriber("/corrected_imu", Vector3, self.imu_callback, queue_size=1)
 
         self.img_pub=rospy.Publisher('/floor_img', Image, queue_size=1)
@@ -53,8 +55,12 @@ class PredictHeight(object):
             rate.sleep()
 
     def imu_callback(self, msg):
+        if self.first:
+            self.last_yaw=msg.z
+            self.first=False
         # msg.orientation
-        roll, pitch, self.imu_yaw=msg.x, msg.y, msg.z
+        self.imu_roll, self.imu_pitch, self.imu_yaw=msg.x, msg.y, msg.z
+        # print(self.imu_yaw)
 
     def img_callback(self, msg):
         # print(len(self.tiles))
@@ -96,7 +102,7 @@ class PredictHeight(object):
             # ind=np.argmax(hist)
             # best_grad=round((bin_edges[ind]+bin_edges[ind+1])/2, 2)
             # print(best_grad)
-            best_grad=self.imu_yaw
+            best_grad=0
 
             #find area of rectangle
             contour_mask=255-opening
@@ -227,20 +233,25 @@ class PredictHeight(object):
             self.colors.append(self.rand_color())
 
     def pub_odom(self, x, y, h, yaw):
-        if self.last_yaw-yaw>20:
-            yaw=self.last_yaw
+        if self.first:
+            return
+        yaw=math.atan2(math.sin(self.imu_yaw), math.cos(self.imu_yaw))
 
-        if self.last_height-h>0.3:
-            h=self.last_height 
+        # if abs(self.last_yaw-yaw)>20*math.pi/180:
+        #     yaw=self.last_yaw
+            
+
+        # if abs(self.last_height-h)>0.3:
+        #     h=self.last_height 
 
         #if it's the first time, memorize its initial readings
         br = tf.TransformBroadcaster()
 
         br.sendTransform((x, y, h),
-                         tf.transformations.quaternion_from_euler(0, 0, yaw*math.pi/180),
+                         tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, yaw),
                          rospy.Time.now(),
                          "base_link",
-                         "odom")
+                         "world")
         
         #publish odometry
         odom=Odometry()
@@ -249,7 +260,7 @@ class PredictHeight(object):
         odom.pose.pose.position.y=y
         odom.pose.pose.position.z=h
         q=Quaternion()
-        q.x, q.y, q.z, q.w=tf.transformations.quaternion_from_euler(0, 0, yaw*math.pi/180)
+        q.x, q.y, q.z, q.w=tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, yaw)
         odom.pose.pose.orientation=q
         self.vodom_pub.publish(odom)
 
