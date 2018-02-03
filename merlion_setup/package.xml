@@ -1,13 +1,11 @@
-<?xml version="1.0"?>
-<package format="2">
-  <name>merlion_scripts</name>
+<package>
+  <name>merlion_setup</name>
   <version>0.0.0</version>
-  <description>Utility package for Merlion</description>
+  <description>Setup package for Merlion</description>
   <author email="phamngtuananh@gmail.com">Tuan Anh</author>
   <license>BSD</license>
   <maintainer email="phamngtuananh@gmail.com">Tuan Anh</maintainer>
 
   <buildtool_depend>catkin</buildtool_depend>
-  <depend>roscpp</depend>
 
 </package>

@@ -3,8 +3,8 @@ SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", S
 #SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", SYMLINK+="logi_c310", ATTRS{idProduct}=="081b", ATTRS{serial}=="956BC6D0"
 
 # Random one
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="1871", MODE="0666", SYMLINK+="camera1", ATTRS{idProduct}=="0101", ATTRS{manufacturer}=="AVEO Technology Corp."
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="05e3", MODE="0666", SYMLINK+="camera2", ATTRS{idProduct}=="0510", ATTRS{manufacturer}=="GenesysLogic Technology Co., Ltd."
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="1871", MODE="0666", SYMLINK+="twincam_1", ATTRS{idProduct}=="0101", ATTRS{manufacturer}=="AVEO Technology Corp."
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="05e3", MODE="0666", SYMLINK+="twincam_2", ATTRS{idProduct}=="0510", ATTRS{manufacturer}=="GenesysLogic Technology Co., Ltd."
 
 # Astra rgb camera
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="2bc5", MODE="0666", SYMLINK+="astra_rgb_cam", ATTRS{idProduct}=="0501"

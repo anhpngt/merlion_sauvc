@@ -1,11 +1,14 @@
+<?xml version="1.0"?>
 <launch>
-  <node pkg="image_view" type="image_view" name="image_view_c310" respawn="true" output="screen">
-    <remap from="image" to="/logi_c310/image_raw"/>
+
+  <node pkg="image_view" type="image_view" name="image_view_down" respawn="true" output="screen">
+    <remap from="image" to="/down/image_raw"/>
     <param name="autosize" value="true" />
   </node>
 
-  <node pkg="image_view" type="image_view" name="image_view_c920" respawn="true" output="screen">
-    <remap from="image" to="/logi_c920/image_raw"/>
+  <node pkg="image_view" type="image_view" name="image_view_front" respawn="true" output="screen">
+    <remap from="image" to="/front/image_rect_color"/>
     <param name="autosize" value="true" />
   </node>
+
 </launch>

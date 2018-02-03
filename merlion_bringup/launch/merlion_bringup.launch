@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="merlion_control"     type="control_driver"   name="control_driver"   output="screen">
+        <param name="dir_y" value="-1.0"/>
+        <param name="dir_x" value="-1.0"/>
+        <param name="dir_z" value="1.0"/>
+        <param name="dir_wx" value="1.0"/>
+        <param name="dir_wy" value="1.0"/>
+        <param name="dir_wz" value="1.0"/>
+    </node>
+    
+    <arg name="local_ip" default="127.0.0.1"/>
+    <arg name="remote_ip" default="127.0.0.1"/>
+
+    <arg name="fcu_url" default="/dev/ttyUSB0:115200"/>
+    <arg name="gcs_url" default="udp://$(arg local_ip):14555@$(arg remote_ip):14550"/>
+    <arg name="system_id" default="255"/>
+    <arg name="component_id" default="240"/>
+    <arg name="tgt_system" default="1"/>
+    <arg name="tgt_component" default="1"/>
+    <arg name="pluginlists_yaml" value="$(find merlion_bringup)/launch/apm_pluginlists.yaml"/>
+    <arg name="config_yaml" value="$(find mavros)/launch/apm_config.yaml"/>
+    <arg name="log_output" default="screen"/>
+
+    <node pkg="mavros" type="mavros_node" name="mavros" required="true" clear_params="true" output="$(arg log_output)">
+        <param name="fcu_url" value="$(arg fcu_url)"/>
+        <param name="gcs_url" value="$(arg gcs_url)"/>
+        <param name="system_id" value="$(arg system_id)"/>
+        <param name="component_id" value="$(arg component_id)"/>
+        <param name="target_system_id" value="$(arg tgt_system)"/>
+        <param name="target_component_id" value="$(arg tgt_component)"/>
+
+        <!-- load blacklist, config -->
+        <rosparam command="load" file="$(arg pluginlists_yaml)"/>
+        <rosparam command="load" file="$(arg config_yaml)"/>
+    </node>
+
+    <node pkg="rosservice" type="rosservice" name="mavros_set_stream" args="call --wait /mavros/set_stream_rate 0 10 1"/>
+
+</launch>

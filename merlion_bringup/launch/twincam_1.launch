@@ -2,12 +2,12 @@
 <!--use command: [v4l2-ctl - -all] to shown the default values of the cameras-->
 
 <launch>
-  <arg name="video_device" default="/dev/logi_c920" />
-  <arg name="camera_frame_id" default="front" />
-  <arg name="namespace" default="front" />
+  <arg name="video_device" default="/dev/twincam_1" />
+  <arg name="camera_frame_id" default="down" />
+  <arg name="namespace" default="down" />
   <arg name="camera_info" default="camera_info" />
   <arg name="camera_image_raw" default="image_raw" />
-  <arg name="camera_model" default="logitech_c920" />
+  <arg name="camera_model" default="twincam_1" />
 
   <group ns="$(arg namespace)" >
     <node pkg="usb_cam" type="usb_cam_node" name="usb_cam" output="screen" >
