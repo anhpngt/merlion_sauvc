@@ -7,6 +7,7 @@
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/Vector3.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
@@ -33,7 +34,12 @@ static const std::string OPENCV_WINDOW = "Image window";
 Mat curr_img;
 Mat curr_rot;
 Mat curr_out;
+double curr_pit = 0.0;
+double curr_rol = 0.0;
 double curr_yaw = 0.0;
+double curr_yaw_deg = 0.0;
+double last_yaw_deg = 0.0;
+
 double initial_offset = 0.0;
 // double initial_offset = 0.0;
 double visual_correction = 0.0;
@@ -42,6 +48,7 @@ void imageCb(const sensor_msgs::ImageConstPtr& msg);
 void imuCb(const sensor_msgs::Imu::ConstPtr& _imu);
 void localPoseCb(const nav_msgs::Odometry _pose);
 double radToDeg(double rad);
+double degToRad(double deg);
 double wrapDeg(double deg);
 Mat rotate(Mat src, double angle);
 Mat localize(Mat src);
@@ -73,7 +80,11 @@ double curr_x = 0.0;
 double curr_y = 0.0;
 
 ros::Publisher pose_pub;
+ros::Publisher imu_euclid_pub;
 geometry_msgs::Quaternion curr_quat;
+
+vector<Rect> last_vec_rect;
+vector<Rect> curr_vec_rect;
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "image_converter");
@@ -87,6 +98,7 @@ int main(int argc, char** argv) {
     ros::Subscriber sub_pose = nh.subscribe("/mavros/global_position/local", 10, localPoseCb);
 
     pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/merlion/pose_update", 10);
+    imu_euclid_pub = nh.advertise<geometry_msgs::Vector3>("/corrected_imu", 10);
 
     ros::Rate loop_rate(20);
     while (nh.ok()) {
@@ -106,10 +118,10 @@ void imageCb(const sensor_msgs::ImageConstPtr& msg) {
     try {
         cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         Mat curr_cropped = cropCircle(cv_ptr->image);
-        curr_rot = rotate(curr_cropped, curr_yaw); 
+        curr_rot = rotate(curr_cropped, curr_yaw_deg); 
         Mat temp = localize(cv_ptr->image);
         curr_out = rotate(curr_cropped, visual_correction);
-        curr_out = drawCrossHair(curr_out);
+        // curr_out = drawCrossHair(curr_out);
 
     } catch (cv_bridge::Exception& e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
@@ -127,13 +139,13 @@ void localPoseCb(const nav_msgs::Odometry _pose){
     // double roll, pitch, yaw;
     // m.getRPY(roll, pitch, yaw);
 
-    // curr_yaw = wrapDeg(radToDeg(yaw) - initial_offset);
+    // curr_yaw_deg = wrapDeg(radToDeg(yaw) - initial_offset);
 
-    // ROS_INFO("Current hdg: %.3f deg", curr_yaw);
+    // ROS_INFO("Current hdg: %.3f deg", curr_yaw_deg);
 }
 
 void imuCb(const sensor_msgs::Imu::ConstPtr& _imu){
-    curr_quat = _imu->orientation;
+    // curr_quat = _imu->orientation;
     tf::Quaternion q(
         _imu->orientation.x,
         _imu->orientation.y,
@@ -143,9 +155,24 @@ void imuCb(const sensor_msgs::Imu::ConstPtr& _imu){
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
-    curr_yaw = wrapDeg(radToDeg(yaw) + initial_offset);
+    last_yaw_deg = curr_yaw_deg;
+    curr_yaw_deg = wrapDeg(radToDeg(yaw) + initial_offset);
+    // if (fabs(curr_yaw_deg - last_yaw_deg) > 30.) curr_yaw_deg = last_yaw_deg;
 
-    // ROS_INFO("Current hdg: %.3f deg", curr_yaw);
+    double temp_yaw = atan2(sin(degToRad(curr_yaw_deg + visual_correction)), cos(degToRad(curr_yaw_deg + visual_correction)));
+    
+    curr_rol = roll;
+    curr_pit = pitch;
+    curr_yaw = temp_yaw;
+
+    tf::Quaternion curr_q;    
+    curr_q.setRPY(curr_rol, curr_pit, temp_yaw);
+
+    curr_quat.x = curr_q.getX();
+    curr_quat.y = curr_q.getY();
+    curr_quat.z = curr_q.getZ();
+    curr_quat.w = curr_q.getW();
+    // ROS_INFO("Current hdg: %.3f deg", curr_yaw_deg);
 }
 
 void publish_pose(){
@@ -153,26 +180,38 @@ void publish_pose(){
     msg.header.frame_id = "world";
     msg.header.stamp = ros::Time::now();
 
-    msg.pose.position.x = curr_x;
-    msg.pose.position.y = curr_y;
+    msg.pose.position.x = 0.0;
+    msg.pose.position.y = 0.0;
     msg.pose.position.z = 0.0;
     msg.pose.orientation = curr_quat;
 
     pose_pub.publish(msg);
 
-    static tf::TransformBroadcaster br;
-    tf::Transform transform = tf::Transform(tf::Quaternion(msg.pose.orientation.x,
-                            msg.pose.orientation.y,
-                            msg.pose.orientation.z,
-                            msg.pose.orientation.w),
-                    tf::Vector3(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z));
+    geometry_msgs::Vector3 imu_msg;
+    imu_msg.x = curr_rol;
+    imu_msg.y = curr_pit;
+    imu_msg.z = curr_yaw;
 
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "merlion"));
+    imu_euclid_pub.publish(imu_msg);
+
+    // static tf::TransformBroadcaster br;
+    // tf::Transform transform = tf::Transform(tf::Quaternion(msg.pose.orientation.x,
+    //                         msg.pose.orientation.y,
+    //                         msg.pose.orientation.z,
+    //                         msg.pose.orientation.w),
+    //                 tf::Vector3(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z));
+
+    // br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "merlion"));
 }
 
 double radToDeg(double rad){
     return rad/3.14*180.0;
 }
+
+double degToRad(double deg){
+    return deg/180.0*3.14;
+}
+
 
 double wrapDeg(double deg){
     if (deg < -180.0) return (360.0 + deg);
@@ -225,6 +264,11 @@ Mat localize(Mat src){
     double min_area = 1000.0;
     double min_dist_from_center = 300;
     findContours( canny_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+
+    last_vec_rect.clear();
+    last_vec_rect = curr_vec_rect;
+    curr_vec_rect.clear();
+
     double sum_width = 0.0;
     double sum_height = 0.0;
     int n_rect = 0;
@@ -238,6 +282,7 @@ Mat localize(Mat src){
             sum_width += (float)(rect.width);
             sum_height += (float)(rect.height);
             n_rect ++;
+            curr_vec_rect.push_back(rect);
         }
     }
     double tile_width = sum_width / (float)n_rect;
@@ -290,16 +335,6 @@ Mat localize(Mat src){
     last_min_dist_x_1 = curr_min_dist_x;
     curr_min_dist_x = min_dist_x;
 
-    // if (curr_min_dist_x > last_min_dist_x_2 + threshold_x && 
-    //     last_min_dist_x_1 > last_min_dist_x_2 + threshold_x &&
-    //     curr_min_dist_x > last_min_dist_x_3 + threshold_x && 
-    //     last_min_dist_x_1 > last_min_dist_x_3 + threshold_x) tile_count_x++;
-
-    // if (curr_min_dist_x < last_min_dist_x_2 - threshold_x &&
-    //     last_min_dist_x_1 < last_min_dist_x_2 - threshold_x &&
-    //     curr_min_dist_x < last_min_dist_x_3 - threshold_x &&
-    //     last_min_dist_x_1 < last_min_dist_x_3 - threshold_x) tile_count_x--;
-
     if (curr_min_dist_x > last_min_dist_x_1 + threshold_x && 
         curr_min_dist_x > last_min_dist_x_2 + threshold_x && 
         curr_min_dist_x > last_min_dist_x_3 + threshold_x ) tile_count_x++;
@@ -322,16 +357,6 @@ Mat localize(Mat src){
     last_min_dist_y_1 = curr_min_dist_y;
     curr_min_dist_y = min_dist_y;
 
-    // if (curr_min_dist_y > last_min_dist_y_2 + threshold_y && 
-    //     last_min_dist_y_1 > last_min_dist_y_2 + threshold_y &&
-    //     curr_min_dist_y > last_min_dist_y_3 + threshold_y && 
-    //     last_min_dist_y_1 > last_min_dist_y_3 + threshold_y) tile_count_y++;
-
-    // if (curr_min_dist_y < last_min_dist_y_2 - threshold_y &&
-    //     last_min_dist_y_1 < last_min_dist_y_2 - threshold_y &&
-    //     curr_min_dist_y < last_min_dist_y_3 - threshold_y &&
-    //     last_min_dist_y_1 < last_min_dist_y_3 - threshold_y) tile_count_y--;
-
     if (curr_min_dist_y > last_min_dist_y_1 + threshold_y && 
         curr_min_dist_y > last_min_dist_y_2 + threshold_y && 
         curr_min_dist_y > last_min_dist_y_3 + threshold_y ) tile_count_y++;
@@ -339,17 +364,8 @@ Mat localize(Mat src){
         curr_min_dist_y < last_min_dist_y_2 - threshold_y && 
         curr_min_dist_y < last_min_dist_y_3 - threshold_y ) tile_count_y--;
 
-    // std::cout << "Grad X: " << vis_grad_x_deg << "\t Grad Y: " << vis_grad_y_deg << endl;
-    
-    // std::cout << "Visual correction: " << vis_grad_deg << "\t Count: " << grads[bin_1st].size() << endl;
-    // std::cout << "Min pos: " << min_dist_x << "\t Min neg: " << min_dist_neg << " \t Box size: " << min_dist_x + fabs(min_dist_neg) << endl;
-    // std::cout << "Width: " << tile_width << "\t Height: " << tile_height <<  endl;
-
     curr_x = ((float)tile_count_x + bound(curr_min_dist_x / tile_height))* tile_size_x; 
     curr_y = ((float)tile_count_y + bound(curr_min_dist_y / tile_width))* tile_size_y; 
-
-    // std::cout << "Tile x: " << tile_count_x << " \t Tile y: " << tile_count_y << endl;
-    std::cout << "X: " << curr_x << " \t Y: " << curr_y << endl;
     
     return src;
 }
