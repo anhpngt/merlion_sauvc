@@ -12,7 +12,7 @@
   <arg name="blur_ksize" default="5" />
   <arg name="morph_ksize" default="3" />
   
-  <node pkg="merlion_vision" type="gate_thresholder" name="gate_thresholder" output="screen" >
+  <node pkg="merlion_perception" type="gate_thresholder" name="gate_thresholder" output="screen" >
     <param name="camera_image_topic" value="$(arg camera_image_topic)" />
     <param name="result_image_topic" value="$(arg result_image_topic)" />
     <param name="adT_maxValue" value="$(arg adT_maxValue)" />
