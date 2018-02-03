@@ -26,9 +26,10 @@ import hdbscan
 #################################
 
 class DetectGate(object):
-    forward_speed=0.5
-    side_speed=0.5
-    dive_speed=0.2
+    forward_speed=0.8
+    side_speed=0.8
+    dive_speed=0.5
+
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
         self.bridge = CvBridge()
@@ -36,7 +37,7 @@ class DetectGate(object):
         rospy.Subscriber("/logi_c920/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 10)
         self.img_pub=rospy.Publisher('/gate_img', Image, queue_size=1)
 
-        self.cmd_vel_pub=rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self.cmd_vel_pub=rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
 
         rate=rospy.Rate(10)
 
@@ -114,7 +115,6 @@ class DetectGate(object):
                 heatmap_img = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
             #publish velocity command  
             msg=Twist()
-            print(opening.shape)
             print(gate)
 
             pt1=(int(opening.shape[1]/2), int(opening.shape[0]/2))
@@ -144,13 +144,14 @@ class DetectGate(object):
 
             
             self.cmd_vel_pub.publish(msg)
+            opening=cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR)
+            fin = cv2.addWeighted(heatmap_img, 1, opening, 1, 0)
+            self.img_pub.publish(self.bridge.cv2_to_imgmsg(np.hstack([fin, res]), "bgr8"))
 
         except:
             pass
 
-        opening=cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR)
-        fin = cv2.addWeighted(heatmap_img, 1, opening, 1, 0)
-        self.img_pub.publish(self.bridge.cv2_to_imgmsg(np.hstack([fin, res]), "bgr8"))
+
 
     def predict_depth(self, line1, line2):
         fov_w, fov_h=60*math.pi/180, 45*math.pi/180
