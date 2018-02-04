@@ -7,19 +7,22 @@
 #include <ros/package.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
+#include <geometry_msgs/Twist.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 image_transport::Publisher image_pub;
+ros::Publisher vel_pub;
 cv::Mat frame_src;
 cv::Mat str_el;
 double min_area = 300;
 
 // Params
 std::string camera_image_topic = "/front/image_rect_color";
-std::string result_image_topic = "/flare/image";
+std::string out_image_topic = "/flare/image";
+std::string out_vel_topic = "/merlion/control/cmd_vel";
 double adT_maxValue = 255;
 double adT_C = 3;
 int adT_method = 1;
@@ -28,10 +31,10 @@ int adT_blockSize = 51;
 int select_channel = 2;
 int blur_ksize = 5;
 int morph_ksize = 3;
+double vel_scaling = 0.5;
 
 void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
 {
-  std::chrono::time_point<std::chrono::system_clock> t1 = std::chrono::system_clock::now();
   try
   {
     frame_src = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8)->image;
@@ -90,17 +93,35 @@ void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
         best_detection = rect;
         max_area = area;
       }
-      cv::rectangle(frame_src, rect.tl(), rect.br()-cv::Point(1,1), cv::Scalar(150,150,150), 2, 8, 0);
+      cv::rectangle(frame_src, rect.tl(), rect.br() - cv::Point(1,1), cv::Scalar(150,150,150), 2, 8, 0);
     }
+    if(max_area > 0)
+    { 
+      cv::rectangle(frame_src, best_detection.tl(), best_detection.br() - cv::Point(1,1), cv::Scalar(0,255,0), 2, 8, 0);
 
-    cv::rectangle(frame_src, best_detection.tl(), best_detection.br()-cv::Point(1,1), cv::Scalar(0,255,0), 2, 8, 0);
+      // Give cmd_vel msg
+      geometry_msgs::Twist cmd_vel_msg;
+      cv::Point rect_center = (best_detection.tl() + best_detection.br()) / 2;
+      double location = ((double)rect_center.x - frame_src.cols / 2) / frame_src.cols;
+      if(location > 0.15)
+      {
+        cmd_vel_msg.linear.y = vel_scaling;
+      }
+      else if(location < -0.15)
+      {
+        cmd_vel_msg.linear.y = -vel_scaling;
+      }
+      else
+      {
+        cmd_vel_msg.linear.x = vel_scaling;
+      }
+      vel_pub.publish(cmd_vel_msg);
+    }
   }
 
   // Publish
   sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::BGR8, frame_src).toImageMsg();
   image_pub.publish(msg);
-
-  ROS_INFO("Frame took %.4lf ms.", (double)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - t1).count() / 1000.0);
 }
 
 int main(int argc, char **argv)
@@ -111,7 +132,8 @@ int main(int argc, char **argv)
   ros::NodeHandle pnh("~");
 
   pnh.getParam("camera_image_topic", camera_image_topic);
-  pnh.getParam("result_image_topic",result_image_topic);
+  pnh.getParam("out_image_topic",out_image_topic);
+  pnh.getParam("out_vel_topic", out_vel_topic);
   pnh.getParam("adT_maxValue", adT_maxValue);
   pnh.getParam("adT_C", adT_C);
   pnh.getParam("adT_method", adT_method);
@@ -120,10 +142,12 @@ int main(int argc, char **argv)
   pnh.getParam("select_channel", select_channel);
   pnh.getParam("blur_ksize", blur_ksize);
   pnh.getParam("morph_ksize", morph_ksize);
+  pnh.getParam("vel_scaling", vel_scaling);
 
+  vel_pub = nh.advertise<geometry_msgs::Twist>(out_vel_topic, 1);
   image_transport::ImageTransport it(nh);
   image_transport::Subscriber img_sub = it.subscribe(camera_image_topic, 1, imageCb);
-  image_pub = it.advertise(result_image_topic, 1);
+  image_pub = it.advertise(out_image_topic, 1);
 
   // Process
   str_el = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(morph_ksize, morph_ksize));
