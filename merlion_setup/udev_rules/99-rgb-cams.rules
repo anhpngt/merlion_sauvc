@@ -1,6 +1,6 @@
 # Logitech webcam
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", SYMLINK+="logi_c920", ATTRS{idProduct}=="082d", ATTRS{serial}=="6755577F"
-#SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", SYMLINK+="logi_c310", ATTRS{idProduct}=="081b", ATTRS{serial}=="956BC6D0"
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", GROUP="users", MODE="0666", SYMLINK+="logi_c310", ATTRS{idProduct}=="081b", ATTRS{serial}=="2890DD40"
 
 # Random one
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="1871", MODE="0666", SYMLINK+="twincam_1", ATTRS{idProduct}=="0101", ATTRS{manufacturer}=="AVEO Technology Corp."
