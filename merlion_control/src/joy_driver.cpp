@@ -9,7 +9,7 @@ std::string node_name = "merlion_joy_driver";
 void joy_signal_cb (const sensor_msgs::Joy::ConstPtr &joy_signal);
 
 std::string topic_sub_joy = "/joy";
-std::string topic_pub_cmd = "/merlion/control/cmd_vel";
+std::string topic_pub_cmd = "/merlion/control/cmd_vel_joy";
 
 
 double cmd_scale_lin = 1.0;

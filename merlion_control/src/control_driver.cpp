@@ -6,13 +6,36 @@
 #include <mavros_msgs/SetMode.h>
 #include <sensor_msgs/Joy.h>
 
+#include <nav_msgs/Odometry.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <tf/transform_datatypes.h>
+#include <tf/transform_broadcaster.h>
+
 using namespace std;
 
 string node_name = "merlion_control_driver";
 
 std::string topic_sub_joy = "/joy";
 string topic_sub_cmd_vel = "/merlion/control/cmd_vel";
+string topic_sub_cmd_vel_joy = "/merlion/control/cmd_vel_joy";
+
+string topic_sub_pose_update = "/mavros/global_position/local";
+string topic_sub_vis_odom = "/visual_odom";
+
+string topic_pub_target_pose = "/merlion/control/target_pose";
 string topic_pub_control = "/mavros/rc/override";
+
+bool use_vis_z = true;
+
+geometry_msgs::Pose curr_pose;
+geometry_msgs::Pose target_pose;
+geometry_msgs::Pose rel_pose;
+geometry_msgs::Twist target_vel;
+tf::Transform target_tf;
+ros::Time last_stamp_pose_update;
+double pose_update_timeout = 1.0; //sec
+ros::Time last_stamp_warning_pose_timemout;
+double pose_timemout_warning_interval = 3.0; //sec
 
 ros::ServiceClient cmd_client;
 ros::ServiceClient set_mode_client;
@@ -46,17 +69,25 @@ double dir_wx = 1.0;   // wy
 double dir_wy = 1.0;   // wx
 double dir_wz = 1.0;   // wz
 
-double cmd_vel_timeout = 1.0; // sec
+double cmd_vel_timeout = 0.2; // sec
 ros::Time last_stamp_cmd_vel;
 geometry_msgs::Twist curr_cmd_vel;
 
 ros::Publisher pub_control;
+ros::Publisher pub_target_pose;
+bool has_target_pose = false;
+
+bool autonomous = false;
+bool use_cmd_vel_joy = true;
 
 int chan_btn_arm = 7;
 int chan_btn_dis = 6;
 int chan_btn_man = 0;
 int chan_btn_sta = 1;
 int chan_btn_alt = 3;
+int chan_btn_auto = 2;
+int chan_btn_joy = 5;
+
 sensor_msgs::Joy joy_signal_last;
 sensor_msgs::Joy joy_signal_curr;
 int joy_count = 0;
@@ -66,15 +97,36 @@ int MODE_MANUAL = 0;
 int MODE_STABILIZE = 1000; // ppm in uS; from ArduSub/radio.cpp
 int MODE_ALT_HOLD = 2000; // ppm in uS; from ArduSub/radio.cpp
 
-void cb_cmd_vel(geometry_msgs::Twist _cmd_vel);
-void cb_joy_signal (const sensor_msgs::Joy joy_signal);
+// PID controller params
+double kp_x = 0.2, ki_x = 0.0, kd_x = 0.0;
+double kp_y = 0.2, ki_y = 0.0, kd_y = 0.0;
+double kp_z = 0.2, ki_z = 0.0, kd_z = 0.0;
+double kp_wz = 0.2, ki_wz = 0.0, kd_wz = 0.0;
 
-void send_control_cmd(bool in_plane);
+geometry_msgs::Twist curr_err;
+geometry_msgs::Twist last_err;
+geometry_msgs::Twist accu_err;
+geometry_msgs::Twist rate_err;
+
+void cb_cmd_vel(geometry_msgs::Twist _cmd_vel);
+void cb_cmd_vel_joy(geometry_msgs::Twist _cmd_vel);
+void cb_joy_signal (const sensor_msgs::Joy joy_signal);
+void cb_odom(nav_msgs::Odometry _odom);
+void cb_pose_update(nav_msgs::Odometry _pose);
+
+void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel);
 uint16_t mapToPpm(double _in, double _max, double _min);
 double normalize(double _in, double _max, double _min);
 bool check_rising_edge(int channel);
 void setArming(bool arm);
 void setMode(string mode);
+
+void process_cmd_vel();
+void publish_target_pose();
+geometry_msgs::Twist gen_twist(double data, int index);
+geometry_msgs::Twist calculate_target_vel();
+
+geometry_msgs::Pose twist_to_rel_pose(geometry_msgs::Twist _twist, double dt);
 
 int main(int argc, char** argv){
     ros::init(argc, argv, node_name);
@@ -93,10 +145,21 @@ int main(int argc, char** argv){
     nh_param.param<double>("dir_wy", directions[0], directions[0]);
     nh_param.param<double>("dir_wz", directions[3], directions[3]);
 
+    nh_param.param<double>("kp_x", kp_x, kp_x); nh_param.param<double>("ki_x", ki_x, ki_x); nh_param.param<double>("kd_x", kd_x, kd_x);
+    nh_param.param<double>("kp_y", kp_y, kp_y); nh_param.param<double>("ki_y", ki_y, ki_y); nh_param.param<double>("kd_y", kd_y, kd_y);
+    nh_param.param<double>("kp_z", kp_z, kp_z); nh_param.param<double>("ki_z", ki_z, ki_z); nh_param.param<double>("kd_z", kd_z, kd_z);
+    nh_param.param<double>("kp_wz", kp_wz, kp_wz); nh_param.param<double>("ki_wz", ki_wz, ki_wz); nh_param.param<double>("kd_wz", kd_wz, kd_wz);
+
+
     ros::Subscriber sub_cmd_vel = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel, 10, cb_cmd_vel);
+    ros::Subscriber sub_cmd_vel_joy = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel_joy, 10, cb_cmd_vel_joy);
 	ros::Subscriber sub_joy = nh.subscribe<sensor_msgs::Joy>(topic_sub_joy, 10, cb_joy_signal);
 
+    ros::Subscriber sub_odom = nh.subscribe<nav_msgs::Odometry>(topic_sub_vis_odom, 10, cb_odom);
+    ros::Subscriber sub_pose_update = nh.subscribe<nav_msgs::Odometry>(topic_sub_pose_update, 10, cb_pose_update);
+
     pub_control = nh.advertise<mavros_msgs::OverrideRCIn>(topic_pub_control, 10);
+    pub_target_pose = nh.advertise<geometry_msgs::PoseStamped>(topic_pub_target_pose, 10);
 
     cmd_client = nh.serviceClient<mavros_msgs::CommandLong>("/mavros/cmd/command");
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
@@ -104,7 +167,10 @@ int main(int argc, char** argv){
     ros::Rate loop_rate(50);
 
     while (ros::ok()){
-        send_control_cmd(true);
+        process_cmd_vel();
+        publish_target_pose();
+
+        send_control_cmd(true, target_vel);
         ros::spinOnce();
         loop_rate.sleep();
     }
@@ -112,27 +178,201 @@ int main(int argc, char** argv){
     return 0;
 }
 
-void cb_cmd_vel(geometry_msgs::Twist _cmd_vel){
-    last_stamp_cmd_vel = ros::Time::now();
-    curr_cmd_vel = _cmd_vel;
+void cb_odom(nav_msgs::Odometry _odom){
+    curr_pose.position.x = _odom.pose.pose.position.x;
+    curr_pose.position.y = _odom.pose.pose.position.y;
+    if (use_vis_z) curr_pose.position.z = _odom.pose.pose.position.z;
+
+    curr_pose.orientation = _odom.pose.pose.orientation;
+    last_stamp_pose_update = ros::Time::now();
 }
 
-void send_control_cmd(bool in_plane){
+void cb_pose_update(nav_msgs::Odometry _pose){
+    if (!use_vis_z) curr_pose.position.z = _pose.pose.pose.position.z;
+}
+
+void cb_cmd_vel(geometry_msgs::Twist _cmd_vel){
+    if (!use_cmd_vel_joy) {
+        curr_cmd_vel = _cmd_vel;
+        last_stamp_cmd_vel = ros::Time::now();
+    }
+}
+
+void cb_cmd_vel_joy(geometry_msgs::Twist _cmd_vel){
+    if (use_cmd_vel_joy) {
+        curr_cmd_vel = _cmd_vel;
+        last_stamp_cmd_vel = ros::Time::now();
+    }
+}
+
+void process_cmd_vel(){
+    // if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() < cmd_vel_timeout){
+    double dt = 0.2;
+    geometry_msgs::Pose rel_pose = twist_to_rel_pose(curr_cmd_vel, dt);
+    tf::Transform curr_tf, rel_tf;
+    tf::poseMsgToTF(curr_pose, curr_tf);
+    tf::poseMsgToTF(rel_pose, rel_tf);
+
+    if (autonomous){
+        if (ros::Time::now().toSec() - last_stamp_pose_update.toSec() > pose_update_timeout){
+            if (ros::Time::now().toSec() - last_stamp_warning_pose_timemout.toSec() > pose_timemout_warning_interval){
+                ROS_ERROR("Attempt AUTONOMOUS mode without pose update. Reset velocity!");
+                last_stamp_warning_pose_timemout = ros::Time::now();
+            }
+            // reset target_vel
+            geometry_msgs::Twist vel_reset;
+            target_vel = vel_reset;
+
+        } else {
+            tf::Transform target_tf_last = target_tf;
+            geometry_msgs::Pose target_pose_last;
+            tf::poseTFToMsg(target_tf_last, target_pose_last);
+            // target_tf = target_tf_last * rel_tf;
+            if (fabs(curr_cmd_vel.linear.x) < 0.02 && fabs(curr_cmd_vel.linear.y) < 0.02 && fabs(curr_cmd_vel.linear.z) < 0.02 && 
+                fabs(curr_cmd_vel.angular.x) < 0.02 && fabs(curr_cmd_vel.angular.y) < 0.02 && fabs(curr_cmd_vel.angular.z) < 0.02)
+            {
+                // Hold position
+            } else {
+                
+                target_tf = curr_tf * rel_tf;
+
+                tf::poseTFToMsg(target_tf, target_pose);
+                if (fabs(curr_cmd_vel.linear.z) <= 0.02){
+                    target_pose.position.z = target_pose_last.position.z;
+                }
+
+                if (fabs(curr_cmd_vel.angular.z) <= 0.02){
+                    target_pose.orientation = target_pose_last.orientation;
+                }
+                tf::poseMsgToTF(target_pose, target_tf);
+                
+            }
+
+            target_vel = calculate_target_vel();
+        }
+    
+    } else {
+        target_tf = curr_tf * rel_tf;
+        target_vel = curr_cmd_vel;
+
+        tf::poseTFToMsg(target_tf, target_pose);
+    }
+
+    has_target_pose = true;
+    // }
+}
+
+geometry_msgs::Twist calculate_target_vel(){
+    tf::Transform curr_tf;
+    tf::poseMsgToTF(curr_pose, curr_tf);
+    tf::Transform tf_curr_to_target = curr_tf.inverseTimes(target_tf); 
+    double d_x = tf_curr_to_target.getOrigin().getX();
+    double d_y = tf_curr_to_target.getOrigin().getY();
+    double d_z = tf_curr_to_target.getOrigin().getZ();
+
+    tf::Quaternion q = tf_curr_to_target.getRotation();
+
+    tf::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    last_err = curr_err;
+
+    curr_err.linear.x = d_x; 
+    curr_err.linear.y = d_y; 
+    curr_err.linear.z = d_z;
+    curr_err.angular.x = roll; 
+    curr_err.angular.y = pitch; 
+    curr_err.angular.z = yaw;
+
+    accu_err.linear.x = accu_err.linear.x + d_x;
+    accu_err.linear.y = accu_err.linear.y + d_y;
+    accu_err.linear.z = accu_err.linear.z + d_z;
+    accu_err.angular.x = accu_err.angular.x + roll;
+    accu_err.angular.y = accu_err.angular.y + pitch;
+    accu_err.angular.z = accu_err.angular.z + yaw;
+    
+    rate_err.linear.x = curr_err.linear.x - last_err.linear.x;
+    rate_err.linear.y = curr_err.linear.y - last_err.linear.y;
+    rate_err.linear.z = curr_err.linear.z - last_err.linear.z;
+    rate_err.angular.x = curr_err.angular.x - last_err.angular.x;
+    rate_err.angular.y = curr_err.angular.y - last_err.angular.y;
+    rate_err.angular.z = curr_err.angular.z - last_err.angular.z;
+    
+    geometry_msgs::Twist m_twist;
+    m_twist.linear.x = curr_err.linear.x * kp_x + accu_err.linear.x * ki_x + rate_err.linear.x * kd_x;
+    m_twist.linear.y = curr_err.linear.y * kp_y + accu_err.linear.y * ki_y + rate_err.linear.y * kd_y;
+    m_twist.linear.z = curr_err.linear.z * kp_z + accu_err.linear.z * ki_z + rate_err.linear.z * kd_z;
+    m_twist.angular.z = curr_err.angular.z * kp_wz + accu_err.angular.z * ki_wz + rate_err.angular.z * kd_wz;
+
+    ROS_INFO("%.3f - %.3f - %.3f - %.3f", d_x, d_y, d_z, yaw);
+
+    return m_twist;
+}
+
+geometry_msgs::Twist gen_twist(double data, int index){
+    geometry_msgs::Twist m_twist;
+    switch (index) {
+        case 0: m_twist.linear.x = data; break;
+        case 1: m_twist.linear.y = data; break;
+        case 2: m_twist.linear.z = data; break;
+        case 3: m_twist.angular.x = data; break;
+        case 4: m_twist.angular.y = data; break;
+        case 5: m_twist.angular.z = data; break;
+    }
+    return m_twist;
+}
+
+void publish_target_pose(){
+    // geometry_msgs::PoseStamped msg;
+    // msg.header.frame_id = "base_link";
+    // msg.header.stamp = ros::Time::now();
+    // msg.pose = rel_pose;
+    // pub_target_pose.publish(msg);
+
+    if (!has_target_pose) return;
+    static tf::TransformBroadcaster br;
+    try {
+        br.sendTransform(tf::StampedTransform(target_tf, ros::Time::now(), "map", "target_pose"));
+    } catch (tf::TransformException ex){
+        ROS_ERROR("%s",ex.what());
+        // ros::Duration(1.0).sleep();    
+    }
+}
+
+geometry_msgs::Pose twist_to_rel_pose(geometry_msgs::Twist _twist, double dt){
+    tf::Quaternion quat;
+    quat.setRPY(_twist.angular.x * dt, _twist.angular.y * dt, _twist.angular.z * dt);
+
+    geometry_msgs::Pose m_pose;
+    m_pose.position.x = _twist.linear.x * dt;
+    m_pose.position.y = _twist.linear.y * dt;
+    m_pose.position.z = _twist.linear.z * dt;
+
+    m_pose.orientation.x = quat.getX();
+    m_pose.orientation.y = quat.getY();
+    m_pose.orientation.z = quat.getZ();
+    m_pose.orientation.w = quat.getW();
+
+    return m_pose;
+}
+
+void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
     if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() < cmd_vel_timeout){
         mavros_msgs::OverrideRCIn msg;
 
-        msg.channels[5] = mapToPpm(directions[5] * lin_x_scaling * curr_cmd_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
-        msg.channels[6] = mapToPpm(directions[6] * lin_y_scaling * curr_cmd_vel.linear.y, lin_max_vel, lin_min_vel);     // strafe   (y)
-        msg.channels[2] = mapToPpm(directions[2] * lin_z_scaling * curr_cmd_vel.linear.z, lin_max_vel, lin_min_vel);     // throttle (z)
-        msg.channels[3] = mapToPpm(directions[3] * rot_z_scaling * curr_cmd_vel.angular.z, rot_max_vel, rot_min_vel);    // yaw      (wz)
+        msg.channels[5] = mapToPpm(directions[5] * lin_x_scaling * target_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
+        msg.channels[6] = mapToPpm(directions[6] * lin_y_scaling * target_vel.linear.y, lin_max_vel, lin_min_vel);     // strafe   (y)
+        msg.channels[2] = mapToPpm(directions[2] * lin_z_scaling * target_vel.linear.z, lin_max_vel, lin_min_vel);     // throttle (z)
+        msg.channels[3] = mapToPpm(directions[3] * rot_z_scaling * target_vel.angular.z, rot_max_vel, rot_min_vel);    // yaw      (wz)
 
         if (in_plane) {
             msg.channels[1] = 1500; // roll     (wx)
             msg.channels[0] = 1500; // pitch    (wy)
         
         } else {
-            msg.channels[1] = mapToPpm(directions[1] * rot_x_scaling * curr_cmd_vel.angular.x, rot_max_vel, rot_min_vel); // roll     (wx)
-            msg.channels[0] = mapToPpm(directions[0] * rot_y_scaling * curr_cmd_vel.angular.y, rot_max_vel, rot_min_vel); // pitch    (wy)
+            msg.channels[1] = mapToPpm(directions[1] * rot_x_scaling * target_vel.angular.x, rot_max_vel, rot_min_vel); // roll     (wx)
+            msg.channels[0] = mapToPpm(directions[0] * rot_y_scaling * target_vel.angular.y, rot_max_vel, rot_min_vel); // pitch    (wy)
         }
         
         msg.channels[4] = 1500; // mode         - not used (change to service)
@@ -177,6 +417,24 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
             mode = MODE_ALT_HOLD;
             ROS_INFO("Attemp changing mode: ALT_HOLD");   
             setMode("ALT_HOLD");
+        }
+
+        if (check_rising_edge(chan_btn_auto)){
+            autonomous = !autonomous;
+            if (autonomous) {
+                ROS_ERROR("AUTONOMOUS MODE");
+            } else {
+                ROS_WARN("Exit autonomous");
+            }   
+        }
+
+        if (check_rising_edge(chan_btn_joy)){
+            use_cmd_vel_joy = !use_cmd_vel_joy;
+            if (use_cmd_vel_joy) {
+                ROS_WARN("Use cmd_vel from joystick");
+            } else {
+                ROS_ERROR("Use cmd_vel from nodes");
+            }   
         }
     }
 }
@@ -224,9 +482,6 @@ void setMode(string mode){
 }
 
 uint16_t mapToPpm(double _in, double _max, double _min) {
-    // in should be min to max
-    // converting to -1 to 1
-    // out should be 1000 to 2000 (microseconds)
     double in = normalize(_in, _max, _min);
 
     uint16_t out = 1000 + (in + 1.0) * 500;

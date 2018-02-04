@@ -170,7 +170,7 @@ class PredictHeight(object):
             ppm=px_W/W
             self.pos_x+=best_del_x/ppm
             self.pos_y+=best_del_y/ppm
-            self.pub_odom(self.pos_x, self.pos_y, pred_depth, best_grad)
+            self.pub_odom(self.pos_x, self.pos_y, pred_depth)
 
             # print(best_grad, best_area, pred_depth)
             cv2.rectangle(contour_mask, (0, 0), (w, 80), (0,0,0), -1)
@@ -232,14 +232,14 @@ class PredictHeight(object):
         for i in range(20):
             self.colors.append(self.rand_color())
 
-    def pub_odom(self, x, y, h, yaw):
+    def pub_odom(self, x, y, h):
         if self.first:
             return
         yaw=math.atan2(math.sin(self.imu_yaw), math.cos(self.imu_yaw))
 
         # if abs(self.last_yaw-yaw)>20*math.pi/180:
         #     yaw=self.last_yaw
-            
+        
 
         # if abs(self.last_height-h)>0.3:
         #     h=self.last_height 
@@ -251,7 +251,7 @@ class PredictHeight(object):
                          tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, yaw),
                          rospy.Time.now(),
                          "base_link",
-                         "world")
+                         "map")
         
         #publish odometry
         odom=Odometry()
