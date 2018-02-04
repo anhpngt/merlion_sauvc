@@ -132,6 +132,7 @@ class PredictHeight(object):
             best_area=round((bin_edges[ind]+bin_edges[ind+1])/2, 2)
             pred_depth=self.predict_depth(best_area)
 
+            pred_depth=pred_depth*math.cos(self.imu_pitch)*math.cos(self.imu_roll)
 
             for tile in self.tiles:
                 r=tile.one_step_update(r)
@@ -170,7 +171,7 @@ class PredictHeight(object):
             ppm=px_W/W
             self.pos_x+=best_del_x/ppm
             self.pos_y+=best_del_y/ppm
-            self.pub_odom(self.pos_x, self.pos_y, pred_depth, best_grad)
+            self.pub_odom(self.pos_x, self.pos_y, pred_depth)
 
             # print(best_grad, best_area, pred_depth)
             cv2.rectangle(contour_mask, (0, 0), (w, 80), (0,0,0), -1)
@@ -196,7 +197,7 @@ class PredictHeight(object):
         px_W, px_H=640, 480
 
         #tile real world dimension
-        real_w, real_h=0.2, 0.1
+        real_w, real_h=0.25, 0.12
 
         #pixel tile size
         px_w=math.sqrt(area/(real_w*real_h))*real_w
@@ -232,15 +233,15 @@ class PredictHeight(object):
         for i in range(20):
             self.colors.append(self.rand_color())
 
-    def pub_odom(self, x, y, h, yaw):
+    def pub_odom(self, x, y, h):
         if self.first:
             return
         yaw=math.atan2(math.sin(self.imu_yaw), math.cos(self.imu_yaw))
-
-        # if abs(self.last_yaw-yaw)>20*math.pi/180:
-        #     yaw=self.last_yaw
+        print(abs(self.last_yaw-yaw))
+        print(self.last_yaw)
+        if abs(self.last_yaw-yaw)>20*math.pi/180:
+            yaw=self.last_yaw
             
-
         # if abs(self.last_height-h)>0.3:
         #     h=self.last_height 
 
@@ -251,7 +252,7 @@ class PredictHeight(object):
                          tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, yaw),
                          rospy.Time.now(),
                          "base_link",
-                         "world")
+                         "map")
         
         #publish odometry
         odom=Odometry()

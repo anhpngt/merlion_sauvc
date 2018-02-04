@@ -57,6 +57,7 @@ Mat drawCrossHair(Mat src);
 int getBinIndex(double val, double min, double max, int n_int);
 void publish_pose();
 double bound(double in);
+// void rotateFrame(const Mat &input, Mat &output, Mat &A , double roll, double pitch, double yaw);
 
 double threshold_x = 5.0;
 double last_min_dist_x_3 = 100.0;
@@ -81,7 +82,7 @@ double curr_y = 0.0;
 
 ros::Publisher pose_pub;
 ros::Publisher imu_euclid_pub;
-geometry_msgs::Quaternion curr_quat;
+geometry_msgs::Quaternion curr_quat_vis_corrected;
 
 vector<Rect> last_vec_rect;
 vector<Rect> curr_vec_rect;
@@ -118,7 +119,7 @@ void imageCb(const sensor_msgs::ImageConstPtr& msg) {
     try {
         cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         Mat curr_cropped = cropCircle(cv_ptr->image);
-        curr_rot = rotate(curr_cropped, curr_yaw_deg); 
+        curr_rot = rotate(curr_cropped, -curr_yaw_deg); 
         Mat temp = localize(cv_ptr->image);
         curr_out = rotate(curr_cropped, visual_correction);
         // curr_out = drawCrossHair(curr_out);
@@ -145,7 +146,6 @@ void localPoseCb(const nav_msgs::Odometry _pose){
 }
 
 void imuCb(const sensor_msgs::Imu::ConstPtr& _imu){
-    // curr_quat = _imu->orientation;
     tf::Quaternion q(
         _imu->orientation.x,
         _imu->orientation.y,
@@ -157,25 +157,25 @@ void imuCb(const sensor_msgs::Imu::ConstPtr& _imu){
 
     last_yaw_deg = curr_yaw_deg;
     curr_yaw_deg = wrapDeg(radToDeg(yaw) + initial_offset);
-    // if (fabs(curr_yaw_deg - last_yaw_deg) > 30.) curr_yaw_deg = last_yaw_deg;
-
-    double temp_yaw = atan2(sin(degToRad(curr_yaw_deg + visual_correction)), cos(degToRad(curr_yaw_deg + visual_correction)));
     
     curr_rol = roll;
     curr_pit = pitch;
-    curr_yaw = temp_yaw;
+    curr_yaw = yaw;
 
-    tf::Quaternion curr_q;    
-    curr_q.setRPY(curr_rol, curr_pit, temp_yaw);
-
-    curr_quat.x = curr_q.getX();
-    curr_quat.y = curr_q.getY();
-    curr_quat.z = curr_q.getZ();
-    curr_quat.w = curr_q.getW();
     // ROS_INFO("Current hdg: %.3f deg", curr_yaw_deg);
 }
 
 void publish_pose(){
+
+    double temp_yaw = atan2(sin(degToRad(curr_yaw_deg + visual_correction)), cos(degToRad(curr_yaw_deg + visual_correction)));
+    tf::Quaternion curr_q;    
+    curr_q.setRPY(curr_rol, curr_pit, temp_yaw);
+
+    curr_quat_vis_corrected.x = curr_q.getX();
+    curr_quat_vis_corrected.y = curr_q.getY();
+    curr_quat_vis_corrected.z = curr_q.getZ();
+    curr_quat_vis_corrected.w = curr_q.getW();
+
     geometry_msgs::PoseStamped msg;
     msg.header.frame_id = "world";
     msg.header.stamp = ros::Time::now();
@@ -183,14 +183,14 @@ void publish_pose(){
     msg.pose.position.x = 0.0;
     msg.pose.position.y = 0.0;
     msg.pose.position.z = 0.0;
-    msg.pose.orientation = curr_quat;
+    msg.pose.orientation = curr_quat_vis_corrected;
 
     pose_pub.publish(msg);
 
     geometry_msgs::Vector3 imu_msg;
     imu_msg.x = curr_rol;
     imu_msg.y = curr_pit;
-    imu_msg.z = curr_yaw;
+    imu_msg.z = degToRad(visual_correction);
 
     imu_euclid_pub.publish(imu_msg);
 
@@ -379,3 +379,25 @@ double bound(double in){
     if (in > 1.0) return 1.0;
     else return in;
 }
+
+// Mat rotateFrame(const Mat &input, Mat &A , double roll, double pitch, double yaw){
+//     Mat Rx = (Mat_<double>(3, 3) <<
+//               1,          0,           0,
+//               0, cos(roll), -sin(roll),
+//               0, sin(roll),  cos(roll));
+//     Mat Ry = (Mat_<double>(3, 3) <<
+//               cos(pitch), 0, sin(pitch),
+//               0, 1,          0,
+//               -sin(pitch), 0,  cos(pitch));
+//     Mat Rz = (Mat_<double>(3, 3) <<
+//               cos(yaw), -sin(yaw), 0,
+//               sin(yaw),  cos(yaw), 0,
+//               0,          0,           1);
+
+//     Mat R = Rx*Ry*Rz;
+//     Mat trans = A*R*A.inv();
+
+//     Mat dst = input.clone;
+//     warpPerspective(input, dst, trans, input.size());
+//     return dst;
+// }
