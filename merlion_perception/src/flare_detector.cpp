@@ -13,27 +13,27 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-image_transport::Publisher image_pub;
-ros::Publisher vel_pub;
-cv::Mat frame_src;
-cv::Mat str_el;
-double min_area = 300;
+static image_transport::Publisher image_pub;
+static ros::Publisher vel_pub;
+static cv::Mat frame_src;
+static cv::Mat str_el;
+static double min_area = 300;
 
 // Params
-std::string camera_image_topic = "/front/image_rect_color";
-std::string out_image_topic = "/flare/image";
-std::string out_vel_topic = "/merlion/control/cmd_vel";
-double adT_maxValue = 255;
-double adT_C = 3;
-int adT_method = 1;
-int adT_type = 1;
-int adT_blockSize = 51;
-int select_channel = 2;
-int blur_ksize = 5;
-int morph_ksize = 3;
-double vel_scaling = 0.5;
+static std::string camera_image_topic = "/front/image_rect_color";
+static std::string out_image_topic = "/flare/image";
+static std::string out_vel_topic = "/merlion/control/cmd_vel";
+static double adT_maxValue = 255;
+static double adT_C = 3;
+static int adT_method = 1;
+static int adT_type = 1;
+static int adT_blockSize = 51;
+static int select_channel = 2;
+static int blur_ksize = 5;
+static int morph_ksize = 3;
+static double vel_scaling = 0.5;
 
-void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
+static void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
 {
   try
   {
@@ -84,8 +84,8 @@ void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
     double hull_area = cv::contourArea(hull);
 
 
-    if(std::fabs(area / mr_area) > 0.6
-       && std::fabs(area / hull_area) > 0.6
+    if(std::fabs(area / mr_area) > 0.7
+       && std::fabs(area / hull_area) > 0.7
        && (5 * rect.height > frame_src.rows))
     {
       if(area > max_area)
