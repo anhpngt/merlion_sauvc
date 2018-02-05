@@ -27,7 +27,7 @@ Software:
 
 ## Requirements
 - ROS Kinetic (Ubuntu 16.04 LTS). 
-  - ROS Indigo (Ubuntu 14.04 LTS) supports have been dropped.
+  - ROS Indigo (Ubuntu 14.04 LTS) may work but is not supported.
 
 - Install package dependencies:
 ```
@@ -59,19 +59,19 @@ sudo udevadm control --reload-rules && sudo service udev restart && sudo udevadm
 ### SSH
 From ground PC:
 ```
-ssh ugv@192.168.1.119
+ssh usv@192.168.1.119
 ```
 or
 ```
-ssh ugv@ugv-nuc
+ssh usv@usv
 ```
 
 Add these lines on ground PC into *~/.bashrc* to work with NUC ROS master
 ```
 export ROS_MASTER_URI=http://192.168.1.119:11311
-export ROS_IP=192.168.1.xxx
+export ROS_IP=192.168.1.xxx # your `hostname -I` result
 ```
-Remove (comment) those line if you want to work with a local ROS master
+Remove (comment) those lines if you want to work with a local ROS master
 
 ### Manual Motor Control
 ```
