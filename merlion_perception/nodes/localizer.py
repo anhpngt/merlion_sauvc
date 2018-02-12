@@ -21,7 +21,7 @@ from tiles import Tile
 ##############class##############
 #################################
 
-class PredictHeight(object):
+class Localizer(object):
     skip=1
     
     counter=0
@@ -41,6 +41,7 @@ class PredictHeight(object):
 
     imu_roll=0
     imu_pitch=0
+    # imu_yaw=0
     imu_yaw=0
 
     first=True
@@ -58,7 +59,7 @@ class PredictHeight(object):
         # rospy.Subscriber("/corrected_imu", Vector3, self.cor_imu_callback, queue_size=1)
         rospy.Subscriber("/mavros/imu/data", Imu, self.imu_callback, queue_size=1)
 
-        self.img_pub=rospy.Publisher('/floor_img', Image, queue_size=1)
+        self.img_pub=rospy.Publisher('/localizer_img', Image, queue_size=1)
         self.vodom_pub=rospy.Publisher('/visual_odom', Odometry, queue_size=1)
 
         
@@ -143,23 +144,6 @@ class PredictHeight(object):
             good_grads=grad[ind]
             best_grad=np.mean(good_grads)
 
-            # good_grads=[]
-            # for line in lines:
-            #     #find two major gradients            
-            #     x1, y1, x2, y2=line[0][0], line[0][1], line[0][2], line[0][3]
-            #     theta=math.atan(float(y2-y1)/(x2-x1))*180/math.pi
-                
-            #     if abs(theta-best_grad)<10 or abs(theta-best_grad-90)<10:
-            #     # cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 3, cv2.LINE_AA)
-            #         cv2.line(contour_mask, (x1, y1), (x2, y2), 0, 2, cv2.LINE_AA)
-
-            #     if abs(theta-best_grad)<10:
-            #         good_grads.append(theta)
-
-            
-            # best_grad=0
-
-            #find area of rectangle
             
             # contour_mask=self.mask_correction(contour_mask)
             M = cv2.getRotationMatrix2D((w/2,h/2),best_grad,1)
@@ -177,7 +161,9 @@ class PredictHeight(object):
                 if rect[0]>border and rect[0]+rect[2]<w-border and rect[1]>border and rect[3]+rect[1]<h-border:
                     area=int(rect[3]*rect[2])
                     # print(area)
-                    if area>1000 and area<120000:
+                    ar=float(rect[2])/rect[3]
+                    real_ar=0.25/0.12
+                    if area>1000 and area<120000 and abs(ar/real_ar-1)<0.3:
                         cv2.rectangle(contour_mask, (rect[0],rect[1]), (rect[2]+rect[0],rect[3]+rect[1]), (0,255,0), 2)
                         areas.append(area)
                         r.append(rect)
@@ -317,6 +303,8 @@ class PredictHeight(object):
 
         if not self.first and abs(self.last_yaw-yaw)>20*math.pi/180:
             yaw=self.last_yaw
+        if h==0:
+            yaw=self.last_yaw
 
         self.grad_pred.append(yaw*180/math.pi)
         if len(self.grad_pred)>20:
@@ -335,7 +323,6 @@ class PredictHeight(object):
             h=np.clip(h, 0, 1)
         elif h<0.2:
             h=self.last_height
-
 
 
         self.height_pred.append(h)
@@ -398,6 +385,6 @@ class PredictHeight(object):
 if __name__ == '__main__':
 
     try:
-        PredictHeight(nodename="predict_height", drive=None)
+        Localizer(nodename="localizer", drive=None)
     except rospy.ROSInterruptException:
         rospy.loginfo("finished.")

@@ -8,35 +8,48 @@ import numpy as np
 from geometry_msgs.msg import Pose, Point, Quaternion, Twist, PoseArray
 from sensor_msgs.msg import PointCloud2, Image
 from nav_msgs.msg import Odometry
-
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from visualization_msgs.msg import MarkerArray, Marker
 
 import time
-
-from sklearn.cluster import DBSCAN, KMeans
-from sklearn import metrics
-from sklearn.metrics.pairwise import euclidean_distances, manhattan_distances
-from sklearn.preprocessing import StandardScaler, normalize
 import random
 
-import hdbscan
 
 #################################
 ##############class##############
 #################################
 
 class DetectGate(object):
-    forward_speed=0.8
-    side_speed=0.8
-    dive_speed=0.5
+    forward_speed=1.5
+    side_speed=1.5
+    dive_speed=0.8
+    yaw_speed=1
+    yaw_count=0
+
+    x0, y0, z0=0, 0, 0
+    roll0, pitch0, yaw0=0, 0, 0
+    odom_received=False
+
+    #make birdeye heatmap with size 50, 25, ppm=2, init_pos=0.7, 25 
+    birdeye_heatmap=np.zeros((50, 100), dtype=np.uint8)
+    init_pos=0.7, 25
+    ppm=2
 
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
         self.bridge = CvBridge()
+        self.init_markers()
+        rospy.Subscriber("/logi_c920/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
+        rospy.Subscriber("/front/image_rect_color", Image, self.img_callback, queue_size = 1)
 
-        rospy.Subscriber("/logi_c920/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 10)
+
+        rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
+        # while self.odom_received!=True and not rospy.is_shutdown():
+        #     rospy.sleep(1)
+        #     print("waiting for odom from predict_height")
+
         self.img_pub=rospy.Publisher('/gate_img', Image, queue_size=1)
-
+        self.birdeye_heatmap_pub=rospy.Publisher('/birdeye_gate', Image, queue_size=1)
         self.cmd_vel_pub=rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
 
         rate=rospy.Rate(10)
@@ -115,13 +128,17 @@ class DetectGate(object):
                 heatmap_img = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
             #publish velocity command  
             msg=Twist()
-            print(gate)
+            # print(gate)
 
             pt1=(int(opening.shape[1]/2), int(opening.shape[0]/2))
             if max_val==0:
                 #stop
                 msg.linear.x=0
                 msg.linear.y=0
+            elif gate[0]==0 and gate[1]==1:
+                #gate not found, yaw to search
+                msg.angular.z=(-1)**(int(self.yaw_count/10)%2)*self.yaw_speed
+                self.yaw_count+=1
             elif abs(gate[1]-opening.shape[0]/2.0)/opening.shape[0]>0.2:
                 #adjust height 
                 sign=abs(gate[1]-opening.shape[0]/2.0)/(gate[1]-opening.shape[0]/2.0)
@@ -148,15 +165,53 @@ class DetectGate(object):
             fin = cv2.addWeighted(heatmap_img, 1, opening, 1, 0)
             self.img_pub.publish(self.bridge.cv2_to_imgmsg(np.hstack([fin, res]), "bgr8"))
 
+            #compute real position of gate in x,y,z
+            #first x and y refers to side and height
+            fov_w, fov_h=62*math.pi/180, 46*math.pi/180
+            px_W, px_H=640, 480
+
+            pd=(px_W/2)/math.tan(fov_w/2)
+            del_px=(-gate[0]+opening.shape[1]/2.0)
+            del_py=(-gate[1]+opening.shape[0]/2.0)
+            del_x=depth*del_px/pd
+            del_y=depth*del_py/pd
+
+            del_real_x=del_x*math.cos(self.roll0)-del_y*math.sin(self.roll0)
+            del_real_y=del_x*math.sin(self.roll0)+del_y*math.cos(self.roll0)+depth*math.tan(self.pitch0)
+            
+            x_gate=self.x0+depth*math.cos(self.yaw0)-del_real_x*math.sin(self.yaw0)
+            y_gate=self.y0+depth*math.sin(self.yaw0)+del_real_x*math.cos(self.yaw0)
+            z_gate=self.z0+del_real_y
+            
+            #plot in map
+            ind_x=int(self.birdeye_heatmap.shape[0]-(self.init_pos[0]+x_gate)*self.ppm)
+            ind_y=int((self.init_pos[1]-y_gate)*self.ppm)
+            self.birdeye_heatmap[ind_x, ind_y]+=1
+
+            max_val=np.amax(self.birdeye_heatmap)
+            if max_val>0:
+                birdeye_heatmap_img = cv2.applyColorMap(self.birdeye_heatmap*int(255/max_val), cv2.COLORMAP_JET)
+            else:
+                birdeye_heatmap_img = cv2.applyColorMap(self.birdeye_heatmap, cv2.COLORMAP_JET)
+
+            ind=np.argmax(self.birdeye_heatmap)
+            ind_x=int(ind/self.birdeye_heatmap.shape[1])
+            ind_y=ind%self.birdeye_heatmap.shape[1]
+            gate_pos=[]
+            gate_pos.append((self.birdeye_heatmap.shape[0]-ind_x)/self.ppm-self.init_pos[0])
+            gate_pos.append(self.init_pos[1]-ind_y/self.ppm)
+            
+            self.printMarker(gate_pos)
+            self.birdeye_heatmap_pub.publish(self.bridge.cv2_to_imgmsg(birdeye_heatmap_img, "bgr8"))
+
         except:
             pass
 
-
+        
 
     def predict_depth(self, line1, line2):
-        fov_w, fov_h=60*math.pi/180, 45*math.pi/180
+        fov_w, fov_h=62*math.pi/180, 46*math.pi/180
         px_W, px_H=640, 480
-
         # print(line1, line2)
         # print(np.subtract(line1[0, :], line1[1,:]))
         l1=np.sqrt(np.sum(np.square(np.subtract(line1[0, :], line1[1,:])), axis=0))
@@ -172,12 +227,10 @@ class DetectGate(object):
         #real length of pole in metres
         real_l=1.5
         ppm=l/real_l
-        W=px_H/ppm
-        depth=W/(2*math.tan(fov_h/2))
+        H=px_H/ppm
+        depth=H/(2*math.tan(fov_h/2))
         # print(depth)
         return depth
-
-
 
 
     def find_crosses(self, h_lines, v_lines):
@@ -219,6 +272,66 @@ class DetectGate(object):
         for i in range(3):
             res[:, :, i] = clahe.apply(img[:, :, i])
         return res
+
+
+    def odom_callback(self, msg):
+        self.x0 = msg.pose.pose.position.x
+        self.y0 = msg.pose.pose.position.y
+        self.z0 = msg.pose.pose.position.z
+        # print(self.z0)
+        self.roll0, self.pitch0, self.yaw0 = euler_from_quaternion((msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w))
+        self.odom_received = True
+        
+
+
+    def printMarker(self, gate_pos):
+                #markerList store points wrt 2D world coordinate
+                
+        self.markers.points=[]
+        p=Point()
+
+        self.markers.points.append(Point(0, 0, 0))
+        p.x=gate_pos[0]
+        p.y=gate_pos[1]
+        p.z=0.75
+        q_angle = quaternion_from_euler(0, 0, 0)
+        q = Quaternion(*q_angle)
+        self.markers.pose = Pose(p, q)
+
+        self.marker_pub.publish(self.markers)
+
+
+    def init_markers(self):
+        # Set up our waypoint markers
+        marker_scale = 0.2
+        marker_lifetime = 0  # 0 is forever
+        marker_ns = 'frontiers'
+        marker_id = 0
+        marker_color = {'r': 1.0, 'g': 0.7, 'b': 1.0, 'a': 1.0}
+
+        # Define a marker publisher.
+        self.marker_pub = rospy.Publisher('gate_markers', Marker, queue_size=5)
+
+        # Initialize the marker points list.
+        self.markers = Marker()
+        self.markers.ns = marker_ns
+        self.markers.id = marker_id
+        # self.markers.type = Marker.ARROW
+        self.markers.type = Marker.SPHERE_LIST
+        self.markers.action = Marker.ADD
+        self.markers.lifetime = rospy.Duration(marker_lifetime)
+        self.markers.scale.x = marker_scale
+        self.markers.scale.y = marker_scale
+        self.markers.scale.z = marker_scale
+        self.markers.color.r = marker_color['r']
+        self.markers.color.g = marker_color['g']
+        self.markers.color.b = marker_color['b']
+        self.markers.color.a = marker_color['a']
+
+        self.markers.header.frame_id = 'map'
+        self.markers.header.stamp = rospy.Time.now()
+        self.markers.points = list()
+
 ##########################
 ##########main############
 ##########################
