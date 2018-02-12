@@ -15,14 +15,14 @@ Hardware:
 
 Software:
 - [ ] Mission Manager
-- [ ] Qualification node
+- [x] Qualification node
 - [ ] Mission 1 node
 - [ ] Mission 2 node
 - [ ] Mission 3 node
 - [x] Object detection, shape/color-based
 - [ ] Object detection, deep learning
 - [x] Vel_controller
-- [ ] SLAM
+- [x] SLAM
 
 
 ## Requirements
@@ -74,6 +74,7 @@ export ROS_IP=192.168.1.xxx # your `hostname -I` result
 Remove (comment) those lines if you want to work with a local ROS master
 
 ### Manual Motor Control
+TODO: Update this
 ```
 roslaunch bluerov apm.launch
 ```
