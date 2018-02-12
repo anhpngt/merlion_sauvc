@@ -10,11 +10,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-// void lineDetection(cv::Mat input_image)
-// {
-
-// }
-
 int main(int argc, char **argv)
 {
   if(argc != 2)
