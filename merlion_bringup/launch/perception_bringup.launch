@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="merlion_perception"     type="tf_broadcaster"   name="tf_broadcaster"   output="screen"/>
+    <node pkg="merlion_perception"     type="predict_height"   name="predict_height"   output="screen"/>
+    <node pkg="merlion_control"     type="rotate_img"   name="rotate_img"   output="screen"/>
+</launch>

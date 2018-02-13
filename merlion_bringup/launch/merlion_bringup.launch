@@ -1,14 +1,5 @@
 <?xml version="1.0"?>
-<launch>
-    <node pkg="merlion_control"     type="control_driver"   name="control_driver"   output="screen">
-        <param name="dir_y" value="-1.0"/>
-        <param name="dir_x" value="-1.0"/>
-        <param name="dir_z" value="1.0"/>
-        <param name="dir_wx" value="1.0"/>
-        <param name="dir_wy" value="1.0"/>
-        <param name="dir_wz" value="1.0"/>
-    </node>
-    
+<launch>    
     <arg name="local_ip" default="127.0.0.1"/>
     <arg name="remote_ip" default="127.0.0.1"/>
 
