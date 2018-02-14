@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#Reinaldo Maslim, NTU Merlion 2018
 
 import rospy
 import math
@@ -24,8 +25,10 @@ from tiles import Tile
 class Localizer(object):
     skip=1
     
-    counter=0
+    frame_counter=0
     ind_count=0
+
+
     pos_x=0
     pos_y=0
 
@@ -54,12 +57,17 @@ class Localizer(object):
         rospy.init_node(nodename, anonymous=False)
         self.bridge = CvBridge()
         self.init_colors()
+
+        ####Subscribers####
+        #sub to downward cam as main for localizer
         rospy.Subscriber("/down/image_rect_color", Image, self.img_callback, queue_size = 1)
         rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
-        # rospy.Subscriber("/corrected_imu", Vector3, self.cor_imu_callback, queue_size=1)
+        
+        #sub to imu
         rospy.Subscriber("/mavros/imu/data", Imu, self.imu_callback, queue_size=1)
 
-        self.img_pub=rospy.Publisher('/localizer_img', Image, queue_size=1)
+        ####Publishers####
+        self.img_pub=rospy.Publisher('/localizer/img', Image, queue_size=1)
         self.vodom_pub=rospy.Publisher('/visual_odom', Odometry, queue_size=1)
 
         
@@ -89,7 +97,7 @@ class Localizer(object):
         font = cv2.FONT_HERSHEY_SIMPLEX
         color=(0, 0, 255)
 
-        if self.counter%self.skip==0:
+        if self.frame_counter%self.skip==0:
             # self.tiles=[]
             img=self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
@@ -236,7 +244,7 @@ class Localizer(object):
             opening=cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR)
             self.img_pub.publish(self.bridge.cv2_to_imgmsg(np.hstack([img, contour_mask]), "bgr8"))
 
-        self.counter+=1
+        self.frame_counter+=1
 
         print("total time: "+str(time.time()-start_time))
 

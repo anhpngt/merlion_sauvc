@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-
-#Reinaldo Maslim, NTU Merlion 2018
+#NTU Merlion 2018
 
 import rospy
 import math
@@ -22,12 +21,7 @@ import random
 #################################
 
 class Detector(object):
-    forward_speed=1.5
-    side_speed=1.5
-    dive_speed=0.8
-    yaw_speed=1
-    yaw_count=0
-
+    #odom
     x0, y0, z0=0, 0, 0
     roll0, pitch0, yaw0=0, 0, 0
     odom_received=False
@@ -80,6 +74,11 @@ class Detector(object):
 
         while not rospy.is_shutdown():
             #publish 
+
+            #clean up noise of heatmaps
+            # self.heatmaps[self.heatmaps<2]=0
+
+
             try:
                 #pub detection img
                 self.detection_img_pub.publish(self.bridge.cv2_to_imgmsg(self.detection_img, "bgr8"))
@@ -106,7 +105,7 @@ class Detector(object):
 
     def gate_img_callback(self, msg):
         font = cv2.FONT_HERSHEY_SIMPLEX
-        color=(0, 0, 255)
+        color=(0, 255, 0)
         start_time=time.time()
         img=self.bridge.imgmsg_to_cv2(msg, "bgr8")
         # img=self.img_correction(img)
@@ -209,8 +208,18 @@ class Detector(object):
         #first x and y refers to side and height
 
 
-        x, y=self.compute_xy(gate[0], gate[1], depth, img)
+        x, y, z=self.compute_xy(gate[0], gate[1], depth, img)
+        
+        #filter out weird locations
+        #width of pool on each side, pool y direction
+        pool_w=15
+        #located around 8 meters x
+        if abs(x-8)>2 and pool_w-abs(y)<0:
+            #out of expected area
+            return
 
+
+        cv2.putText(self.detection_img, str(z), (50, 50), font, 0.5, color, 1, cv2.LINE_AA)
         #plot in map
         ind_x=int(self.heatmaps.shape[0]-(self.init_pos[0]+x)*self.ppm)
         ind_y=int((self.init_pos[1]-y)*self.ppm)
@@ -241,7 +250,7 @@ class Detector(object):
         #red then blue
         boundaries = [
             ([0, 0, 0], [125, 105, 255], [0, 0, 255]),
-            ([0, 31, 4], [255, 128, 50], [255, 0, 0])
+            ([0, 0, 0], [255, 128, 50], [255, 0, 0])
         ]   
 
         combined_mask=np.zeros((h, w), dtype=np.uint8)
@@ -265,7 +274,7 @@ class Detector(object):
                         
             for contour in contours:
                 #if too low not valid
-                if self.z0<0.7:
+                if self.z0<0.5:
                     break
 
                 rect = cv2.boundingRect(contour)
@@ -274,12 +283,12 @@ class Detector(object):
                 # print(ar)
                 px_count=np.sum(opening[rect[1]:rect[1]+rect[3], rect[0]:rect[0]+rect[2]])/255
                 # print(self.px_count/area)
-                if ar<1 and ar>0.5 and area>1000 and area<120000 and px_count/area>0.5 and rect[1]>h/2:
+                if ar<1 and ar>0.5 and area>1000 and area<120000 and px_count/area>0.8 and rect[1]>h/2:
                     # print(self.px_count/area)
                     cv2.rectangle(self.detection_img, (rect[0],rect[1]), (rect[2]+rect[0],rect[3]+rect[1]), color, 2)
 
                     depth=self.predict_depth_bucket(max(rect[2], rect[3]))
-                    x, y=self.compute_xy(rect[0]+rect[2]/2, rect[1]+rect[3]/2, depth, img)
+                    x, y, z=self.compute_xy(rect[0]+rect[2]/2, rect[1]+rect[3]/2, depth, img)
                     text="x, y: "+str(round(x, 2)) +"m "+str(round(y, 2))+"m"
                     cv2.putText(self.detection_img, text, (int(rect[0])+10, int(rect[1])-20), font, 0.5, color, 1, cv2.LINE_AA)
 
@@ -293,7 +302,11 @@ class Detector(object):
                     if i==1:
                         #blue bucket heatmap
                         self.heatmaps[ind_x, ind_y, 1]+=1
+                i+=1
 
+        # frame_binary = cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR);
+        # cv2.imshow('Image', frame_binary)
+        # cv2.waitKey(3)
 
     def flare_img_callback(self, msg):
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -352,7 +365,7 @@ class Detector(object):
         # cv2.waitKey(3)
         l=math.sqrt(rect[2]**2+rect[3]**2)
         depth=self.predict_depth_flare(l)
-        x, y=self.compute_xy(rect[0]+rect[2]/2, rect[1]+rect[3]/2, depth, frame_src)
+        x, y, z=self.compute_xy(rect[0]+rect[2]/2, rect[1]+rect[3]/2, depth, frame_src)
 
         text="x, y: "+str(round(x, 2)) +"m "+str(round(y, 2))+"m"
         cv2.putText(self.detection_img, text, (int(rect[0])+10, int(rect[1])-20), font, 0.5, color, 1, cv2.LINE_AA)
@@ -373,21 +386,27 @@ class Detector(object):
         #compute real position of gate in x,y,z
         #first x and y refers to side and height, depth is in cam frame
 
-
+        #depth in pixel
         pd=(self.px_W/2)/math.tan(self.fov_w/2)
+        
+        #cam x and y deviation in pixels
         del_px=(-px+img.shape[1]/2.0)
         del_py=(-py+img.shape[0]/2.0)
+
+        #cam x and y deviation in meters
         del_x=depth*del_px/pd
         del_y=depth*del_py/pd
 
+        #compensated for rolling and pitch
         del_real_x=del_x*math.cos(self.roll0)-del_y*math.sin(self.roll0)
-        del_real_y=del_x*math.sin(self.roll0)+del_y*math.cos(self.roll0)+depth*math.tan(self.pitch0)
+        del_real_y=del_x*math.sin(self.roll0)+del_y*math.cos(self.roll0)-depth*math.tan(self.pitch0)
         
+        #global position with odom
         x=self.x0+depth*math.cos(self.yaw0)-del_real_x*math.sin(self.yaw0)
         y=self.y0+depth*math.sin(self.yaw0)+del_real_x*math.cos(self.yaw0)
         z=self.z0+del_real_y
-        
-        return x, y
+            
+        return x, y, z
         
     def predict_depth_bucket(self, l):
 
