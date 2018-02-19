@@ -131,104 +131,103 @@ class Detector(object):
         # frame_result = cv2.morphologyEx(frame_binary, cv2.MORPH_CLOSE, str_el)
         # opening = cv2.morphologyEx(frame_result, cv2.MORPH_OPEN, str_el)
 
-
         minLineLength=70
         lines = cv2.HoughLinesP(image=opening,rho=1,theta=np.pi/180,\
          threshold=80,lines=np.array([]), minLineLength=minLineLength,maxLineGap=12)
 
         heatmap=np.zeros_like(opening)
         side=10
-        # try:
-        h_lines=[]
-        v_lines=[]
+        try:
+            h_lines=[]
+            v_lines=[]
 
-        if lines is None:
-            self.erode=1
+            if lines is None:
+                self.erode=1
 
-        for line in lines:
+            for line in lines:
+                
+                x1, y1, x2, y2=line[0][0], line[0][1], line[0][2], line[0][3]
+                
+                theta=abs(math.atan(float(y2-y1)/(x2-x1+0.001))*180/math.pi)
+                # print(theta)
+                angle_thres=30
+                if theta<angle_thres:
+                    #horizontal
+                    # cv2.line(self.detection_img, (x1, y1), (x2, y2), (0, 0, 255), 3, cv2.LINE_AA)
+                    h_lines.append(np.array([[x1, y1], [x2, y2]]))
+                elif abs(theta-90)<angle_thres:
+                    #vertical
+                    # cv2.line(self.detection_img, (x1, y1), (x2, y2), (0, 255, 0), 3, cv2.LINE_AA)
+                    v_lines.append(np.array([[x1, y1], [x2, y2]]))
+
+
+            depths=[]
+            if len(h_lines)>0 and len(v_lines)>0:
+                crosses=self.find_crosses(h_lines, v_lines)
+                
+                for cross, center, depth in crosses:
+                    depths.append(depth)
+                    heatmap[center[1]-side:center[1]+side, center[0]-side:center[0]+side]+=1
+                    text="distance: "+str(round(depth, 2)) +"m"
+                    # cv2.putText(self.detection_img, text, (int(cross[0])+10, int(cross[1])-20), font, 0.5, color, 1, cv2.LINE_AA)
+
+
+            if len(depths)==0:
+                self.gate_rect=None
+                return
+            hist, bin_edges = np.histogram(np.asarray(depths), bins='fd', density=False)
+            ind=np.argmax(hist)
+            depth=round((bin_edges[ind]+bin_edges[ind+1])/2, 2)
             
-            x1, y1, x2, y2=line[0][0], line[0][1], line[0][2], line[0][3]
+            #if height too low, only detect tiles
+            if self.z0<0.5:
+                self.gate_rect=None
+                return
+
+            #process heatmap
+            gate=(np.argmax(heatmap)%img.shape[1], int(math.floor(np.argmax(heatmap)/img.shape[1])+1))
+            cv2.circle(self.detection_img, (int(gate[0]), int(gate[1])), 20, (30, 200, 0), -1)
+
+
+            H=depth*(2*math.tan(self.fov_h/2))
+            ppm=self.px_H/H
+            real_l=1.5
+            l=real_l*ppm
+
+            cv2.rectangle(self.detection_img, (int(gate[0]-l/2),int(gate[1]-l/2)), \
+                (int(gate[0]+l/2),int(gate[1]+l/2)), (0, 255, 0), 2)
+
+            max_val=np.amax(heatmap)
+            if max_val>0:
+                heatmap_img = cv2.applyColorMap(heatmap*int(255/max_val), cv2.COLORMAP_JET)
+            else:
+                heatmap_img = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+            #compute real position of gate in x,y,z
+            #first x and y refers to side and height
+
+
+            x, y, z=self.compute_xy(gate[0], gate[1], depth, img)
             
-            theta=abs(math.atan(float(y2-y1)/(x2-x1+0.001))*180/math.pi)
-            # print(theta)
-            angle_thres=30
-            if theta<angle_thres:
-                #horizontal
-                # cv2.line(self.detection_img, (x1, y1), (x2, y2), (0, 0, 255), 3, cv2.LINE_AA)
-                h_lines.append(np.array([[x1, y1], [x2, y2]]))
-            elif abs(theta-90)<angle_thres:
-                #vertical
-                # cv2.line(self.detection_img, (x1, y1), (x2, y2), (0, 255, 0), 3, cv2.LINE_AA)
-                v_lines.append(np.array([[x1, y1], [x2, y2]]))
+            #filter out weird locations
+            #width of pool on each side, pool y direction
+            pool_w=15
+            #located around 8 meters x
+            if abs(x-8)>2 and pool_w-abs(y)<0:
+                #out of expected area
+                return
 
 
-        depths=[]
-        if len(h_lines)>0 and len(v_lines)>0:
-            crosses=self.find_crosses(h_lines, v_lines)
-            
-            for cross, center, depth in crosses:
-                depths.append(depth)
-                heatmap[center[1]-side:center[1]+side, center[0]-side:center[0]+side]+=1
-                text="distance: "+str(round(depth, 2)) +"m"
-                # cv2.putText(self.detection_img, text, (int(cross[0])+10, int(cross[1])-20), font, 0.5, color, 1, cv2.LINE_AA)
+            cv2.putText(self.detection_img, str(z), (50, 50), font, 0.5, color, 1, cv2.LINE_AA)
+            #plot in map
+            ind_x=int(self.heatmaps.shape[0]-(self.init_pos[0]+x)*self.ppm)
+            ind_y=int((self.init_pos[1]-y)*self.ppm)
+            if ind_x>self.heatmaps.shape[0]-1 or ind_y>self.heatmaps.shape[1]-1:
+                return
+            self.heatmaps[ind_x, ind_y, 0]+=1
 
-
-        if len(depths)==0:
-            self.gate_rect=None
-            return
-        hist, bin_edges = np.histogram(np.asarray(depths), bins='fd', density=False)
-        ind=np.argmax(hist)
-        depth=round((bin_edges[ind]+bin_edges[ind+1])/2, 2)
-        
-        #if height too low, only detect tiles
-        if self.z0<0.5:
-            self.gate_rect=None
-            return
-
-        #process heatmap
-        gate=(np.argmax(heatmap)%img.shape[1], int(math.floor(np.argmax(heatmap)/img.shape[1])+1))
-        cv2.circle(self.detection_img, (int(gate[0]), int(gate[1])), 20, (30, 200, 0), -1)
-
-
-        H=depth*(2*math.tan(self.fov_h/2))
-        ppm=self.px_H/H
-        real_l=1.5
-        l=real_l*ppm
-
-        cv2.rectangle(self.detection_img, (int(gate[0]-l/2),int(gate[1]-l/2)), \
-            (int(gate[0]+l/2),int(gate[1]+l/2)), (0, 255, 0), 2)
-
-        max_val=np.amax(heatmap)
-        if max_val>0:
-            heatmap_img = cv2.applyColorMap(heatmap*int(255/max_val), cv2.COLORMAP_JET)
-        else:
-            heatmap_img = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-
-        #compute real position of gate in x,y,z
-        #first x and y refers to side and height
-
-
-        x, y, z=self.compute_xy(gate[0], gate[1], depth, img)
-        
-        #filter out weird locations
-        #width of pool on each side, pool y direction
-        pool_w=15
-        #located around 8 meters x
-        if abs(x-8)>2 and pool_w-abs(y)<0:
-            #out of expected area
-            return
-
-
-        cv2.putText(self.detection_img, str(z), (50, 50), font, 0.5, color, 1, cv2.LINE_AA)
-        #plot in map
-        ind_x=int(self.heatmaps.shape[0]-(self.init_pos[0]+x)*self.ppm)
-        ind_y=int((self.init_pos[1]-y)*self.ppm)
-        if ind_x>self.heatmaps.shape[0]-1 or ind_y>self.heatmaps.shape[1]-1:
-            return
-        self.heatmaps[ind_x, ind_y, 0]+=1
-
-        # except:
-        #     pass
+        except:
+            pass
 
 
         # frame_binary = cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR);
