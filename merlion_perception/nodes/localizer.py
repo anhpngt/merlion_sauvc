@@ -23,17 +23,18 @@ from tiles import Tile
 #################################
 
 class Localizer(object):
-    skip=1
+    skip=2
     
     frame_counter=0
     ind_count=0
-
 
     pos_x=0
     pos_y=0
 
     last_yaw=0
-    last_height=0
+    last_height=2.6
+
+    last_yaw_count=0
 
     tiles=[]
     colors=[]
@@ -41,14 +42,15 @@ class Localizer(object):
     grad_pred=[]
     height_pred=[]
 
-
     imu_roll=0
     imu_pitch=0
     # imu_yaw=0
     imu_yaw=0
 
     first=True
-    yaw_init_offset=0
+
+    #stores absolute imu direction of pool frame, if not avail set to 0
+    yaw_init_offset=125*math.pi/180
 
     with_visual_correction=True
 
@@ -83,12 +85,14 @@ class Localizer(object):
         # msg.orientation
 
         self.imu_roll, self.imu_pitch,  yaw= euler_from_quaternion((msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w))        
-
+        print(yaw*180/math.pi)
         self.imu_yaw=yaw-self.yaw_init_offset
-        if self.first:
+        
+        if self.first and self.yaw_init_offset==0:
             self.yaw_init_offset=self.imu_yaw
+            
+        if self.first:
             self.first=False
-
         # print(self.imu_yaw)
 
     def img_callback(self, msg):
@@ -301,18 +305,33 @@ class Localizer(object):
             self.colors.append(self.rand_color())
 
     def pub_odom(self, x, y, h, yaw):
-
+        print("-----")
+        v_yaw=yaw*math.pi/180
+        print(yaw, self.imu_yaw*180/math.pi)
         if self.with_visual_correction:
             yaw=yaw*math.pi/180+self.imu_yaw
+            if self.first:
+                thres=math.pi
+            else:
+                thres=math.pi/30
+
+            if abs(v_yaw)<thres:
+                self.yaw_init_offset-=v_yaw
+                self.yaw_init_offset=math.atan2(math.sin(self.yaw_init_offset), math.cos(self.yaw_init_offset))
         else:
             yaw=self.imu_yaw
 
         yaw=math.atan2(math.sin(yaw), math.cos(yaw))
 
-        if not self.first and abs(self.last_yaw-yaw)>20*math.pi/180:
+        if not self.first and abs(self.last_yaw-yaw)>20*math.pi/180 and self.last_yaw_count<3:
             yaw=self.last_yaw
-        if h==0:
+            self.last_yaw_count+=1
+        elif h==0:
             yaw=self.last_yaw
+            self.last_yaw_count+=1
+        else:
+            self.last_yaw_count=0
+
 
         self.grad_pred.append(yaw*180/math.pi)
         if len(self.grad_pred)>20:
@@ -324,13 +343,13 @@ class Localizer(object):
 
         thres=0.9
         # print(yaw*180/math.pi)
-        if not self.first and h-self.last_height>thres:
-            h=self.last_height
-        elif h==0:
-            h=self.last_height-0.1
-            h=np.clip(h, 0, 1)
-        elif h<0.2:
-            h=self.last_height
+        # if not self.first and h-self.last_height>thres:
+        #     h=self.last_height
+        # elif h==0:
+        #     h=self.last_height-0.1
+        #     h=np.clip(h, 0, 1)
+        # elif h<0.2:
+        #     h=self.last_height
 
 
         self.height_pred.append(h)

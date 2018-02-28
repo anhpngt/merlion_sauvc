@@ -40,8 +40,8 @@ class DetectBucket(object):
         self.init_markers()
 
         #sub to front cam
-        rospy.Subscriber("/logi_c920/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
-        rospy.Subscriber("/front/image_rect_color", Image, self.img_callback, queue_size = 1)
+        rospy.Subscriber("/logi_c920/usb_cam_node/image_raw", Image, self.front_img_callback, queue_size = 1)
+        rospy.Subscriber("/front/image_rect_color", Image, self.front_img_callback, queue_size = 1)
 
         #sub to downward cam
         rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
@@ -80,9 +80,10 @@ class DetectBucket(object):
         output=np.zeros_like(img)
         blur = cv2.GaussianBlur(img,(7, 7),0)
 
+        #red, then blue
         boundaries = [
-            ([90, 90, 100], [155, 145, 255], [0, 0, 255]),
-            ([50, 31, 4], [255, 128, 50], [255, 0, 0])
+            ([50, 50, 100], [155, 155, 255], [0, 0, 255]),
+            ([150, 50, 0], [255, 150, 100], [255, 0, 0])
             # ([25, 146, 190], [62, 174, 250]),
             # ([103, 86, 65], [145, 133, 128])
         ]   
@@ -154,11 +155,7 @@ class DetectBucket(object):
         self.down_img_pub.publish(self.bridge.cv2_to_imgmsg(np.hstack([img, combined_mask]), "bgr8"))
 
 
-
-
-
-
-    def img_callback(self, msg):
+    def front_img_callback(self, msg):
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         color=(0, 0, 255)
@@ -172,7 +169,7 @@ class DetectBucket(object):
         blur = cv2.GaussianBlur(img,(7, 7),0)
         #red, then blue
         boundaries = [
-            # ([0, 0, 0], [125, 105, 255], [0, 0, 255]),
+            ([0, 0, 0], [125, 105, 255], [0, 0, 255]),
             ([0, 31, 4], [255, 128, 50], [255, 0, 0])
             # ([25, 146, 190], [62, 174, 250]),
             # ([103, 86, 65], [145, 133, 128])

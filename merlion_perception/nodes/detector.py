@@ -91,6 +91,10 @@ class Detector(object):
                 else:
                     birdeye = cv2.applyColorMap(birdeye, cv2.COLORMAP_JET)  
 
+                ind_x=int(self.heatmaps.shape[0]-(self.init_pos[0]+self.x0)*self.ppm)
+                ind_y=int((self.init_pos[1]-self.y0)*self.ppm)
+                birdeye[ind_x, ind_y]=[255, 255, 255]
+
                 self.birdeye_pub.publish(self.bridge.cv2_to_imgmsg(birdeye, "bgr8"))
 
                 #pub 3 channel heatmap for mission planner
