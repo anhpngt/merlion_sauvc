@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="rosserial_python" type="serial_node.py" name="estop_controller" output="screen">
+    <param name="port" value="/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_95437313634351F04102-if00" />
+    <param name="baud" value="56700" /> <!--!Note: this value must be 56700! -->
+  </node>
+</launch>

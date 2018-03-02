@@ -14,11 +14,11 @@ Hardware:
 - [ ] Servo
 
 Software:
-- [ ] Mission Manager
+- [x] Mission Manager
 - [x] Qualification node
-- [ ] Mission 1 node
-- [ ] Mission 2 node
-- [ ] Mission 3 node
+- [x] Mission 1 node
+- [x] Mission 2 node
+- [x] Mission 3 node
 - [x] Object detection, shape/color-based
 - [ ] Object detection, deep learning
 - [x] Vel_controller
@@ -32,7 +32,10 @@ Software:
 - Install package dependencies:
 ```
 sudo apt-get install ros-kinetic-usb-cam ros-kinetic-mavros ros-kinetic-joy
+sudo apt-get install ros-kinetic-rosserial-arduino ros-kinetic-rosserial
 ```
+
+- (Optional) Arduino ((IDE)[https://www.arduino.cc/en/Main/Software], (rosserial_arduino)[http://wiki.ros.org/rosserial_arduino/Tutorials]) for low-level EStop and Servo
 
 Additionally, install `bluerov` package from [source](https://github.com/bluerobotics/bluerov-ros-pkg#installation-from-source) (apt does not work).
 

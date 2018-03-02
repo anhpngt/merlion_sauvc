@@ -2,7 +2,7 @@
 
 Find info for udev
 ```
-udevadm info /dev/video1
+udevadm info -a -n /dev/video1
 ```
 
 Copy these `.rules` files into `/etc/udev/rules.d`
