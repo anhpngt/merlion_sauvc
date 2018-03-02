@@ -35,7 +35,7 @@ sudo apt-get install ros-kinetic-usb-cam ros-kinetic-mavros ros-kinetic-joy
 sudo apt-get install ros-kinetic-rosserial-arduino ros-kinetic-rosserial
 ```
 
-- (Optional) Arduino ((IDE)[https://www.arduino.cc/en/Main/Software], (rosserial_arduino)[http://wiki.ros.org/rosserial_arduino/Tutorials]) for low-level EStop and Servo
+- (Optional) Arduino ([IDE](https://www.arduino.cc/en/Main/Software), [rosserial_arduino](http://wiki.ros.org/rosserial_arduino/Tutorials) for low-level EStop and Servo
 
 Additionally, install `bluerov` package from [source](https://github.com/bluerobotics/bluerov-ros-pkg#installation-from-source) (apt does not work).
 
