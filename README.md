@@ -9,9 +9,9 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 Hardware:
 - [ ] Acoustics
 - [x] Depth sensor
-- [ ] EStop/Kill switch
+- [x] EStop/Kill switch
 - [x] Frames
-- [ ] Servo
+- [x] Servo
 
 Software:
 - [x] Mission Manager
@@ -27,7 +27,7 @@ Software:
 
 ## Requirements
 - ROS Kinetic (Ubuntu 16.04 LTS). 
-  - ROS Indigo (Ubuntu 14.04 LTS) may work but is not supported.
+  - ROS Indigo (Ubuntu 14.04 LTS) may work but is no longer supported.
 
 - Install package dependencies:
 ```
