@@ -63,7 +63,7 @@ class Localizer(object):
         ####Subscribers####
         #sub to downward cam as main for localizer
         rospy.Subscriber("/down/image_rect_color", Image, self.img_callback, queue_size = 1)
-        rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
+        # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
         
         #sub to imu
         rospy.Subscriber("/mavros/imu/data", Imu, self.imu_callback, queue_size=1)
