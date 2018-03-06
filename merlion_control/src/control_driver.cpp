@@ -172,7 +172,7 @@ int main(int argc, char** argv){
 
     while (ros::ok()){
         process_cmd_vel();
-        publish_target_pose();
+        // publish_target_pose();
 
         send_control_cmd(true, target_vel);
         ros::spinOnce();
