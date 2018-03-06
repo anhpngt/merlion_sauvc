@@ -87,6 +87,10 @@ int chan_btn_sta = 1;
 int chan_btn_alt = 3;
 int chan_btn_auto = 2;
 int chan_btn_joy = 5;
+int chan_btn_servo_on = 10; 
+int chan_btn_servo_off = 9; 
+
+bool servo_closed = true;
 
 sensor_msgs::Joy joy_signal_last;
 sensor_msgs::Joy joy_signal_curr;
@@ -376,7 +380,7 @@ void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
         }
         
         msg.channels[4] = 1500; // mode         - not used (change to service)
-        msg.channels[7] = 1500; // camera-tilt  - not used
+        msg.channels[7] = (servo_closed ? 1100 : 1900); // camera-tilt  - not used
 
         pub_control.publish(msg);
 
@@ -435,6 +439,16 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
             } else {
                 ROS_ERROR("Use cmd_vel from nodes");
             }   
+        }
+
+        if (check_rising_edge(chan_btn_servo_on)){
+            servo_closed = true;
+            ROS_INFO("Servo closed");
+        }
+        
+        if (check_rising_edge(chan_btn_servo_off)){
+            servo_closed = false;
+            ROS_INFO("Servo opened");
         }
     }
 }

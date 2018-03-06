@@ -9,7 +9,7 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 Hardware:
 - [ ] Acoustics
 - [x] Depth sensor
-- [x] EStop/Kill switch
+- [ ] EStop/Kill switch
 - [x] Frames
 - [x] Servo
 
@@ -35,7 +35,7 @@ sudo apt-get install ros-kinetic-usb-cam ros-kinetic-mavros ros-kinetic-joy
 sudo apt-get install ros-kinetic-rosserial-arduino ros-kinetic-rosserial
 ```
 
-- (Optional) Arduino ([IDE](https://www.arduino.cc/en/Main/Software), [rosserial_arduino](http://wiki.ros.org/rosserial_arduino/Tutorials) for low-level EStop and Servo
+- (Optional) Arduino ([IDE](https://www.arduino.cc/en/Main/Software), [rosserial_arduino](http://wiki.ros.org/rosserial_arduino/Tutorials) for low-level EStop) and Servo
 
 Additionally, install `bluerov` package from [source](https://github.com/bluerobotics/bluerov-ros-pkg#installation-from-source) (apt does not work).
 
@@ -76,22 +76,18 @@ export ROS_IP=192.168.1.xxx # your `hostname -I` result
 ```
 Remove (comment) those lines if you want to work with a local ROS master
 
-### Manual Motor Control
+### Control
 TODO: Update this
 ```
-roslaunch bluerov apm.launch
+roslaunch merlion_bringup merlion_bringup.launch
 ```
 
 In ground PC, plug in the joystick and use QGroundControl or ros teleop
 ```
-roslaunch bluerov_apps teleop_f310.launch
-```
-Also note in the launch file above, change the `dev` parameter to match the usb port of the joystick
-```
-<param name="dev" value="/dev/input/js0" type="string"/>
+roslaunch merlion_bringup joy_bringup.launch
 ```
 
-### Logitech USB Webcam
+### Vision
 ```
 roslaunch merlion_bringup sensors.launch
 roslaunch merlion_bringup image_view.launch

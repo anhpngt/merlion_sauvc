@@ -3,7 +3,6 @@ plugin_blacklist:
 - 3dr_radio
 - actuator_control
 - ftp
-- global_position
 - safety_area
 - setpoint_attitude
 - sys_time
@@ -14,7 +13,6 @@ plugin_blacklist:
 - 'vision_*'
 - distance_sensor
 - vibration
-- altitude
 
 plugin_whitelist: []
 #- 'sys_*'
