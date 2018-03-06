@@ -24,7 +24,7 @@ class Mission(object):
     #sleeping time
     timestep=0.1
 
-    #cmd_vel speeds, in meter
+    #cmd_vel speeds, in m/s and rad/s
     forward_speed=1*timestep
     side_speed=1*timestep
     yaw_speed=10*math.pi/180*timestep
@@ -41,17 +41,18 @@ class Mission(object):
     ppm=2
 
     #mission sequence
-    seq=[1, 3, 2]
+    seq=[2]
 
     #stores detections, row wise: gate, bucket, flare, col wise: x, y, confidence
     detections=np.zeros((3, 3))
 
     #visual servoing params
-    del_x, del_y=0, 0
+    blue_del_x, blue_del_y, streak=0, 0, 0
     bucket_seen=False
 
     #look around bias, estimated global position of gate, bucket, and flare
-    detection_bias=[[9, -3], [25, -4], [16, 1]]
+    detection_bias=[[9, -3], [25, -4], [19, -6]]
+    # detection_bias=[[0, 0], [0, 0], [0, 0]]
 
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
@@ -162,42 +163,43 @@ class Mission(object):
         #9. rotate 
         ###########################
         rospy.loginfo("init mission 2")
+        
         thres=0.2
         offset=-2
         #step 1
 
-        self.look_around(1, 'yawing', 10)
+        # self.look_around(1, 'yawing', 10)
         
-        #step 4 enclosing 2 and 3
-        while not rospy.is_shutdown():
-            x, y, conf=self.detections[1]
+        # #step 4 enclosing 2 and 3
+        # while not rospy.is_shutdown():
+        #     x, y, conf=self.detections[1]
 
-            #step 2
-            error_y=y-self.y0
-            if abs(error_y)>thres:
-                rospy.loginfo("2.2 moving sideway")
-                sign=np.sign(error_y)
-                self.pub_cmd_vel(0, sign*self.side_speed,0)
-            else:
-                #step 3
+        #     #step 2
+        #     error_y=y-self.y0
+        #     if abs(error_y)>thres:
+        #         rospy.loginfo("2.2 moving sideway")
+        #         sign=np.sign(error_y)
+        #         self.pub_cmd_vel(0, sign*self.side_speed,0)
+        #     else:
+        #         #step 3
                 
-                if x+offset-self.x0>0:
-                    rospy.loginfo("2.3 move forward")
-                    self.pub_cmd_vel(self.forward_speed, 0, 0)
-                else:
-                    #bravo we're near the bucket
-                    break 
+        #         if x+offset-self.x0>0:
+        #             rospy.loginfo("2.3 move forward")
+        #             self.pub_cmd_vel(self.forward_speed, 0, 0)
+        #         else:
+        #             #bravo we're near the bucket
+        #             break 
 
-        #step 5
-        #tell motor controller to switch to blind mode
-        self.blind_mode()
-        #set few timesteps to foward amount of 2 m ##TODO tune ts
-        ts=1
-        for i in range(int(ts/self.timestep)):
-            rospy.loginfo("blind motion")
-            self.pub_cmd_vel(self.forward_speed, 0, 0)
-            if rospy.is_shutdown():
-                return
+        # #step 5
+        # #tell motor controller to switch to blind mode
+        # self.blind_mode()
+        # #set few timesteps to foward amount of 2 m ##TODO tune ts
+        # ts=1
+        # for i in range(int(ts/self.timestep)):
+        #     rospy.loginfo("blind motion")
+        #     self.pub_cmd_vel(self.forward_speed, 0, 0)
+        #     if rospy.is_shutdown():
+        #         return
             
         #step 6
         sign=0
@@ -209,11 +211,12 @@ class Mission(object):
                 rospy.loginfo("2.6 visual servo adjusting to bucket")
                 #body x axis is in image +y direction
                 #body y axis is in image +x direction
-                vs_x=self.del_y*k
-                vs_y=self.del_x*k
+                vs_x=self.blue_del_y*k
+                vs_y=self.blue_del_x*k
                 self.pub_cmd_vel(vs_x, vs_y, 0)
+                print(vs_x, vs_y, streak)
 
-                if abs(vs_x)<0.2 and abs(vs_y)<0.2:
+                if abs(vs_x)<0.2 and abs(vs_y)<0.2 and self.streak>5:
                     break
             else:
 
@@ -418,9 +421,12 @@ class Mission(object):
                 base_pos_x = self.x0 + sideway_limit / 2.0 * math.sin(original_yaw)
                 base_pos_y = self.y0 - sideway_limit / 2.0 * math.cos(original_yaw)
             else:
-
+                del_x=bias[0]-self.x0
+                del_y=bias[1]-self.y0
+                diff_y=del_y*math.cos(self.yaw0)-del_x*math.sin(self.yaw0)
+                print(diff_y)
                 base_pos_x = self.x0 + sideway_limit / 2.0 * math.sin(original_yaw)
-                base_pos_y = bias[1] - sideway_limit / 2.0 * math.cos(original_yaw)
+                base_pos_y = self.y0 + diff_y - sideway_limit / 2.0 * math.cos(original_yaw)
             x, y, conf=self.detections[i]
 
             # Start looking
@@ -430,7 +436,6 @@ class Mission(object):
                     self.pub_cmd_vel(0, self.side_speed, 0)
                     diff_x = self.x0 - base_pos_x
                     diff_y = self.y0 - base_pos_y
-                    print(diff_x, diff_y)
                     if math.sqrt(diff_x**2 + diff_y**2) > sideway_limit:
                         current_state = states[1]
                         base_pos_x = self.x0
@@ -504,6 +509,8 @@ class Mission(object):
 
 
     def down_img_callback(self, msg):
+        #visual servoing, assume in frame only 1 bucket of each color at a time
+        #go to blue as priority
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         color=(0, 0, 255)
@@ -520,10 +527,8 @@ class Mission(object):
 
         #red then blue
         boundaries = [
-            ([90, 90, 100], [155, 145, 255], [0, 0, 255]),
-            ([50, 31, 4], [255, 128, 50], [255, 0, 0])
-            # ([25, 146, 190], [62, 174, 250]),
-            # ([103, 86, 65], [145, 133, 128])
+            ([50, 50, 100], [155, 155, 255], [0, 0, 255]),
+            ([150, 50, 0], [255, 150, 100], [255, 0, 0])
         ]   
 
         combined_mask=np.zeros((h, w), dtype=np.uint8)
@@ -557,9 +562,23 @@ class Mission(object):
                 if ar<1.5 and ar>0.6 and area>10000 and px_count/area>0.5:
                     self.bucket_seen=True
                     cv2.rectangle(img, (rect[0],rect[1]), (rect[2]+rect[0],rect[3]+rect[1]), color, 2)
-                    self.del_x=(rect[0]+rect[2]/2)-w/2
-                    self.del_y=(rect[1]+rect[3]/2)-h/2
-                    rospy.loginfo(self.bucket_seen, self.del_x, self.del_y)
+                    del_x=(rect[0]+rect[2]/2)-w/2
+                    del_y=(rect[1]+rect[3]/2)-h/2
+                    if i==0:
+                        print("red bucket")
+                    elif i==1:
+
+                        print("blue bucket")
+                        self.blue_del_x=del_x
+                        self.blue_del_y=del_y
+
+                        #if sub inside bucket
+                        if rect[0]<w/2 and rect[2]+rect[0]>w/2 and rect[1]<h/2 and rect[1]+rect[3]>h/2:
+                            self.streak+=1
+                        else:
+                            self.streak=0
+                    print(del_x, del_y)
+                    # rospy.loginfo(self.bucket_seen, self.del_x, self.del_y)
 
             combined_mask=cv2.bitwise_or(combined_mask, mask)
             i+=1

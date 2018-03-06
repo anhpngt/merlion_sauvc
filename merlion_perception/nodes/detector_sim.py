@@ -41,7 +41,7 @@ class Detector(object):
 
 
     #simulated global positions of detection items
-    detections=[[8, -5], [23, -2], [15, 0]]
+    detections=[[8, -5], [23, -2], [20, -5]]
 
 
 
