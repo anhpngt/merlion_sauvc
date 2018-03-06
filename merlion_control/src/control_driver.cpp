@@ -339,7 +339,7 @@ void publish_target_pose(){
     try {
         br.sendTransform(tf::StampedTransform(target_tf, ros::Time::now(), "map", "target_pose"));
     } catch (tf::TransformException ex){
-        ROS_ERROR("%s",ex.what());
+        // ROS_ERROR("%s",ex.what());
         // ros::Duration(1.0).sleep();    
     }
 }
