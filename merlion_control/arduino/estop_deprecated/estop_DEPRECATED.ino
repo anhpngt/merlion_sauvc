@@ -13,7 +13,7 @@ bool isarmed = false;
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   nh.initNode();
   nh.getHardware()->setBaud(115200);
