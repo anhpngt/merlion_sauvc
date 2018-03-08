@@ -203,7 +203,7 @@ int main(int argc, char** argv){
 }
 
 void cb_disarm(std_msgs::Bool _disarm){
-    if (_disarm.data ^ is_armed){
+    if (~_disarm.data ^ is_armed){
         setArming(~_disarm.data);
     }
 }
