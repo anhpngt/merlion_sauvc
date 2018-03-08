@@ -5,9 +5,14 @@ ros::NodeHandle nh;
 std_msgs::Bool bool_msg;
 ros::Publisher switch_pub("/merlion/disarm", &bool_msg);
 
+unsigned long last_pub_time = 0;
+unsigned long last_read_time = 0;
+bool state = false;
+
 void setup() {
   pinMode(8, INPUT_PULLUP);
-  Serial.begin(9600);
+  pinMode(13, OUTPUT);
+//  Serial.begin(57600);
 
   nh.initNode();
   nh.advertise(switch_pub);
@@ -22,8 +27,11 @@ void setup() {
 
 void loop() {
   // Read digital signal
-  int state = digitalRead(8); // GND connect = false, opened = true
-
+  if (millis() - last_read_time > 20){
+    state = digitalRead(8); // GND connect = false, opened = true
+    digitalWrite(13, state);
+    last_read_time = millis();
+  }
   // If estop is closed (GND connected) -> send disarm, else arm
   if(!state)
   {
@@ -35,7 +43,10 @@ void loop() {
     bool_msg.data = false;
     // nh.loginfo("Arming");
   }
-  switch_pub.publish(&bool_msg);
-  nh.spinOnce();
-  delay(100);
+  if (millis() - last_pub_time > 50){
+    switch_pub.publish(&bool_msg);
+    last_pub_time = millis();
+    nh.spinOnce();
+  }
+//  delay(50);
 }

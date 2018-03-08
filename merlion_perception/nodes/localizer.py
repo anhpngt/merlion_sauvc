@@ -6,6 +6,7 @@ import math
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
+from std_msgs.msg import Bool
 from geometry_msgs.msg import Pose, Point, Quaternion, Twist, PoseArray, Vector3
 from sensor_msgs.msg import PointCloud2, Image, Imu
 from nav_msgs.msg import Odometry
@@ -23,6 +24,10 @@ from tiles import Tile
 #################################
 
 class Localizer(object):
+    switch_init = False # wait for armed state from estop
+    last_disarm_time = 0
+    arming_count = 0
+
     skip=2
     
     frame_counter=0
@@ -44,7 +49,6 @@ class Localizer(object):
 
     imu_roll=0
     imu_pitch=0
-    # imu_yaw=0
     imu_yaw=0
 
     first=True
@@ -60,8 +64,19 @@ class Localizer(object):
         self.bridge = CvBridge()
         self.init_colors()
 
+        rate = rospy.Rate(10)
+
+        #### A Subscriber to switch: wait for 2 secs of armed state before initializing
+        self.last_disarm_time = rospy.get_time()
+        rospy.loginfo('Waiting for armed...')
+        waitInitSub = rospy.Subscriber("/merlion/disarm", Bool, self.wait_init, queue_size=1)
+        while not rospy.is_shutdown() and not self.switch_init:
+            rate.sleep()
+        rospy.loginfo('Received arming, initialize!')
+        waitInitSub.unregister()
+
         ####Subscribers####
-        #sub to downward cam as main for localizer
+        # sub to downward cam as main for localizer
         rospy.Subscriber("/down/image_rect_color", Image, self.img_callback, queue_size = 1)
         # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
         
@@ -69,14 +84,21 @@ class Localizer(object):
         rospy.Subscriber("/mavros/imu/data", Imu, self.imu_callback, queue_size=1)
 
         ####Publishers####
-        self.img_pub=rospy.Publisher('/localizer/img', Image, queue_size=1)
-        self.vodom_pub=rospy.Publisher('/visual_odom', Odometry, queue_size=1)
-
-        
-        rate=rospy.Rate(10)
+        self.img_pub = rospy.Publisher('/localizer/img', Image, queue_size=1)
+        self.vodom_pub = rospy.Publisher('/visual_odom', Odometry, queue_size=1)
 
         while not rospy.is_shutdown():
             rate.sleep()
+    
+    def wait_init(self, msg):
+        if msg.data == True: # disarmed
+            self.last_disarm_time = rospy.get_time()
+            self.arming_count = 0
+        else:
+            self.arming_count += 1
+
+        if rospy.get_time() - self.last_disarm_time > 2.0 and self.arming_count > 10: # armed consistently!
+            self.switch_init = True
 
     def cor_imu_callback(self, msg):
         self.imu_roll, self.imu_pitch, self.imu_yaw=msg.x, msg.y, msg.z
@@ -300,7 +322,6 @@ class Localizer(object):
         return np.array([a, b, c])
 
     def init_colors(self):
-
         for i in range(20):
             self.colors.append(self.rand_color())
 
@@ -381,6 +402,7 @@ class Localizer(object):
         odom.pose.pose.position.z=h
         q=Quaternion()
         q.x, q.y, q.z, q.w=tf.transformations.quaternion_from_euler(self.imu_roll, self.imu_pitch, yaw)
+        # print('Pose: {} {} {} {} {} {}'.format(x, y, z, self.imu_roll, self.imu_pitch, self.imu_yaw))
         odom.pose.pose.orientation=q
         self.vodom_pub.publish(odom)
 
