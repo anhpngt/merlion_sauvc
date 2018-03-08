@@ -225,8 +225,8 @@ int main(int argc, char** argv){
 }
 
 void cb_disarm(std_msgs::Bool _disarm){
-    if (~_disarm.data ^ is_armed){
-        setArming(~_disarm.data);
+    if (!_disarm.data ^ is_armed){
+        setArming(!_disarm.data);
     }
 }
 
@@ -319,14 +319,15 @@ void process_cmd_vel(){
         if (alt_ctrl_signal >= 100.0) alt_ctrl_signal = 100.0;
         if (alt_ctrl_signal <= -100.0) alt_ctrl_signal = -100.0;
 
-        // ROS_INFO("Curr yaw vis: %.3f - Last yaw vis: %.3f", curr_yaw, last_yaw);
+        // ROS_INFO("Curr yaw: %.3f - Target yaw: %.3f", curr_yaw, target_yaw);
         // if(!isnan(curr_yaw)) {
 
         double temp_err_yaw = target_yaw - curr_yaw;
-        yaw_ctrl_signal = - temp_err_yaw * 200.0;
+        yaw_ctrl_signal = - temp_err_yaw * 400.0;
         if (yaw_ctrl_signal >= 100.0) yaw_ctrl_signal = 100.0;
         if (yaw_ctrl_signal <= -100.0) yaw_ctrl_signal = -100.0;
-
+	
+	// ROS_INFO("curr yaw err: %.3f", temp_err_yaw);
         //     // ROS_INFO("yaw control");
         // } else {
         //     yaw_ctrl_signal = 0.0;
@@ -611,6 +612,7 @@ void setArming(bool arm) {
     ROS_INFO(arm ? "Armed" : "Disarmed");
     is_armed = arm;
     if(arm){
+	mode = MODE_ALT_HOLD;
         curr_yaw_vis = curr_yaw_cmp;
         mark_yaw_cmp = curr_yaw_cmp;
 

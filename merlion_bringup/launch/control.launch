@@ -6,7 +6,7 @@
         <param name="target_fixed_alt" value="-1.0"/>
 
         <param name="use_fixed_yaw" value="true"/>
-        <param name="target_fixed_yaw" value="-1.0"/>
+        <param name="target_fixed_yaw" value="2.8"/>
 
         <param name="dir_y" value="-1.0"/>
         <param name="dir_x" value="1.0"/>
