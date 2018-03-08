@@ -35,9 +35,23 @@ bool is_armed = false;
 bool use_vis_z = false;
 bool only_depth_control = true;
 
+bool use_fixed_alt = false;
+double target_fixed_alt = -1.0;
 double target_alt = 0.0;
 double alt_ctrl_signal = 0.0;
 
+double curr_yaw_cmp = 1.57;
+double mark_yaw_cmp = 1.57;
+geometry_msgs::Quaternion curr_rot_cmp;
+
+double curr_yaw_vis = 1.57;
+double last_yaw_vis = 1.57;
+geometry_msgs::Quaternion curr_rot_vis;
+
+bool use_fixed_yaw = false;
+double target_fixed_yaw = 1.57;
+double curr_rol = 0.0;
+double curr_pit = 0.0;
 double curr_yaw = 1.57;
 double last_yaw = 1.57;
 double target_yaw = 1.57;
@@ -49,9 +63,12 @@ geometry_msgs::Pose rel_pose;
 geometry_msgs::Twist target_vel;
 tf::Transform target_tf;
 ros::Time last_stamp_pose_update;
-double pose_update_timeout = 1.0; //sec
+double vis_odom_update_timeout = 1.0; //sec
 ros::Time last_stamp_warning_pose_timemout;
 double pose_timemout_warning_interval = 3.0; //sec
+
+ros::Time last_stamp_vis_odom_update;
+ros::Time last_stamp_px4_odom_update;
 
 ros::ServiceClient cmd_client;
 ros::ServiceClient set_mode_client;
@@ -131,8 +148,8 @@ geometry_msgs::Twist rate_err;
 void cb_cmd_vel(geometry_msgs::Twist _cmd_vel);
 void cb_cmd_vel_joy(geometry_msgs::Twist _cmd_vel);
 void cb_joy_signal (const sensor_msgs::Joy joy_signal);
-void cb_odom(nav_msgs::Odometry _odom);
-void cb_pose_update(nav_msgs::Odometry _pose);
+void cb_vis_odom(nav_msgs::Odometry _odom);
+void cb_px4_odom(nav_msgs::Odometry _pose);
 void cb_disarm(std_msgs::Bool _disarm);
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel);
@@ -172,13 +189,18 @@ int main(int argc, char** argv){
     nh_param.param<double>("kp_z", kp_z, kp_z); nh_param.param<double>("ki_z", ki_z, ki_z); nh_param.param<double>("kd_z", kd_z, kd_z);
     nh_param.param<double>("kp_wz", kp_wz, kp_wz); nh_param.param<double>("ki_wz", ki_wz, ki_wz); nh_param.param<double>("kd_wz", kd_wz, kd_wz);
 
+    nh_param.param<bool>    ("use_fixed_alt",   use_fixed_alt,      use_fixed_alt);
+    nh_param.param<double>  ("target_fixed_alt",target_fixed_alt,   target_fixed_alt);
+
+    nh_param.param<bool>    ("use_fixed_yaw",   use_fixed_yaw,      use_fixed_yaw);
+    nh_param.param<double>  ("target_fixed_yaw",target_fixed_yaw,   target_fixed_yaw);
 
     ros::Subscriber sub_cmd_vel = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel, 10, cb_cmd_vel);
     ros::Subscriber sub_cmd_vel_joy = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel_joy, 10, cb_cmd_vel_joy);
 	ros::Subscriber sub_joy = nh.subscribe<sensor_msgs::Joy>(topic_sub_joy, 10, cb_joy_signal);
 
-    ros::Subscriber sub_odom = nh.subscribe<nav_msgs::Odometry>(topic_sub_vis_odom, 10, cb_odom);
-    ros::Subscriber sub_pose_update = nh.subscribe<nav_msgs::Odometry>(topic_sub_pose_update, 10, cb_pose_update);
+    ros::Subscriber sub_odom = nh.subscribe<nav_msgs::Odometry>(topic_sub_vis_odom, 10, cb_vis_odom);
+    ros::Subscriber sub_pose_update = nh.subscribe<nav_msgs::Odometry>(topic_sub_pose_update, 10, cb_px4_odom);
 
     ros::Subscriber sub_estop_disarm = nh.subscribe<std_msgs::Bool>(topic_sub_estop_disarm, 10, cb_disarm);
 
@@ -203,35 +225,71 @@ int main(int argc, char** argv){
 }
 
 void cb_disarm(std_msgs::Bool _disarm){
-    if (~_disarm.data ^ is_armed){
-        setArming(~_disarm.data);
+    if (!_disarm.data ^ is_armed){
+        setArming(!_disarm.data);
     }
 }
 
-void cb_odom(nav_msgs::Odometry _odom){
+void cb_vis_odom(nav_msgs::Odometry _odom){
     curr_pose.position.x = _odom.pose.pose.position.x;
     curr_pose.position.y = _odom.pose.pose.position.y;
     if (use_vis_z) curr_pose.position.z = _odom.pose.pose.position.z;
 
     curr_pose.orientation = _odom.pose.pose.orientation;
-    last_stamp_pose_update = ros::Time::now();
+
+    curr_rot_vis = _odom.pose.pose.orientation;
 
     tf::Quaternion q(
-    curr_pose.orientation.x,
-    curr_pose.orientation.y,
-    curr_pose.orientation.z,
-    curr_pose.orientation.w);
+        curr_rot_vis.x,
+        curr_rot_vis.y,
+        curr_rot_vis.z,
+        curr_rot_vis.w
+    );
 
     tf::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
-    last_yaw = curr_yaw;
-    curr_yaw = yaw;
+    if (!isnan(yaw)){
+        mark_yaw_cmp = curr_yaw_cmp;
+
+        last_yaw_vis = curr_yaw_vis;
+        curr_yaw_vis = yaw;
+    } else {
+
+    }
+
+    // last_yaw = curr_yaw;
+    // curr_yaw = yaw;
+
+    last_stamp_vis_odom_update = ros::Time::now();
+    last_stamp_pose_update = ros::Time::now();
 }
 
-void cb_pose_update(nav_msgs::Odometry _pose){
-    if (!use_vis_z) curr_pose.position.z = _pose.pose.pose.position.z;
+void cb_px4_odom(nav_msgs::Odometry _odom){
+    if (!use_vis_z) curr_pose.position.z = _odom.pose.pose.position.z;
+
+    curr_rot_cmp = _odom.pose.pose.orientation;
+
+    last_stamp_px4_odom_update = ros::Time::now();
+
+    tf::Quaternion q(
+    curr_rot_cmp.x,
+    curr_rot_cmp.y,
+    curr_rot_cmp.z,
+    curr_rot_cmp.w);
+
+    tf::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    curr_yaw_cmp = yaw;
+
+    curr_rol = roll;
+    curr_pit = pitch;
+
+    last_yaw = curr_yaw;
+    curr_yaw = curr_yaw_vis + (curr_yaw_cmp - mark_yaw_cmp);
 }
 
 void cb_cmd_vel(geometry_msgs::Twist _cmd_vel){
@@ -261,18 +319,19 @@ void process_cmd_vel(){
         if (alt_ctrl_signal >= 100.0) alt_ctrl_signal = 100.0;
         if (alt_ctrl_signal <= -100.0) alt_ctrl_signal = -100.0;
 
-        ROS_INFO("Curr yaw vis: %.3f - Last yaw vis: %.3f", curr_yaw, last_yaw);
+        // ROS_INFO("Curr yaw: %.3f - Target yaw: %.3f", curr_yaw, target_yaw);
+        // if(!isnan(curr_yaw)) {
 
-        if(!isnan(curr_yaw)) {
-            double temp_err_yaw = target_yaw - curr_yaw;
-            yaw_ctrl_signal = - temp_err_yaw * 200.0;
-            if (yaw_ctrl_signal >= 100.0) yaw_ctrl_signal = 100.0;
-            if (yaw_ctrl_signal <= -100.0) yaw_ctrl_signal = -100.0;
-
-            ROS_INFO("yaw control");
-        } else {
-            yaw_ctrl_signal = 0.0;
-        }
+        double temp_err_yaw = target_yaw - curr_yaw;
+        yaw_ctrl_signal = - temp_err_yaw * 400.0;
+        if (yaw_ctrl_signal >= 100.0) yaw_ctrl_signal = 100.0;
+        if (yaw_ctrl_signal <= -100.0) yaw_ctrl_signal = -100.0;
+	
+	// ROS_INFO("curr yaw err: %.3f", temp_err_yaw);
+        //     // ROS_INFO("yaw control");
+        // } else {
+        //     yaw_ctrl_signal = 0.0;
+        // }
 
         last_err = curr_err;
 
@@ -285,7 +344,7 @@ void process_cmd_vel(){
         yaw_ctrl_signal = 0.0;
 
         if (autonomous){
-            if (ros::Time::now().toSec() - last_stamp_pose_update.toSec() > pose_update_timeout){
+            if (ros::Time::now().toSec() - last_stamp_vis_odom_update.toSec() > vis_odom_update_timeout){
                 if (ros::Time::now().toSec() - last_stamp_warning_pose_timemout.toSec() > pose_timemout_warning_interval){
                     ROS_ERROR("Attempt AUTONOMOUS mode without pose update. Reset velocity!");
                     last_stamp_warning_pose_timemout = ros::Time::now();
@@ -486,8 +545,12 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
 
         if (check_rising_edge(chan_btn_alt)){
             mode = MODE_ALT_HOLD;
-            target_alt = curr_pose.position.z;
-            target_yaw = target_yaw;
+            if (use_fixed_alt) target_alt = target_fixed_alt;
+            else target_alt = curr_pose.position.z;
+            
+            if (use_fixed_yaw) target_yaw = target_fixed_yaw;
+            else target_yaw = curr_yaw;
+            
             ROS_INFO("Attemp changing mode: ALT_HOLD");   
             // setMode("ALT_HOLD");
         }
@@ -548,6 +611,21 @@ void setArming(bool arm) {
   if(cmd_client.call(srv)) {
     ROS_INFO(arm ? "Armed" : "Disarmed");
     is_armed = arm;
+    if(arm){
+	mode = MODE_ALT_HOLD;
+        curr_yaw_vis = curr_yaw_cmp;
+        mark_yaw_cmp = curr_yaw_cmp;
+
+        if (use_fixed_alt) {
+            target_alt = target_fixed_alt;
+            ROS_WARN("Use fixed altitude: %.3f", target_fixed_alt);
+        }
+        
+        if (use_fixed_yaw) {
+            target_yaw = target_fixed_yaw;
+            ROS_WARN("Use fixed heading: %.3f", target_fixed_yaw);
+        }
+    }
   }
   else {
     ROS_ERROR("Failed to update arming");
