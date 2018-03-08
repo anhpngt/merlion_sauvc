@@ -4,6 +4,7 @@
 #include <mavros_msgs/OverrideRCIn.h>
 #include <mavros_msgs/CommandLong.h>
 #include <mavros_msgs/SetMode.h>
+#include <std_msgs/Bool.h>
 #include <sensor_msgs/Joy.h>
 
 #include <nav_msgs/Odometry.h>
@@ -26,6 +27,10 @@ string topic_sub_vis_odom = "/visual_odom";
 
 string topic_pub_target_pose = "/merlion/control/target_pose";
 string topic_pub_control = "/mavros/rc/override";
+
+string topic_sub_estop_disarm = "/merlion/disarm";
+
+bool is_armed = false;
 
 bool use_vis_z = false;
 bool only_depth_control = true;
@@ -128,6 +133,7 @@ void cb_cmd_vel_joy(geometry_msgs::Twist _cmd_vel);
 void cb_joy_signal (const sensor_msgs::Joy joy_signal);
 void cb_odom(nav_msgs::Odometry _odom);
 void cb_pose_update(nav_msgs::Odometry _pose);
+void cb_disarm(std_msgs::Bool _disarm);
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel);
 uint16_t mapToPpm(double _in, double _max, double _min);
@@ -152,6 +158,7 @@ int main(int argc, char** argv){
     nh_param.param<std::string>("topic_pub_control", topic_pub_control, topic_pub_control);
     nh_param.param<double>("cmd_vel_timeout", cmd_vel_timeout, cmd_vel_timeout);
 	nh_param.param<std::string>("topic_sub_joy", topic_sub_joy, topic_sub_joy);
+	nh_param.param<std::string>("topic_sub_estop_disarm", topic_sub_estop_disarm, topic_sub_estop_disarm);
 
     nh_param.param<double>("dir_y", directions[6], directions[6]);
     nh_param.param<double>("dir_x", directions[5], directions[5]);
@@ -173,6 +180,8 @@ int main(int argc, char** argv){
     ros::Subscriber sub_odom = nh.subscribe<nav_msgs::Odometry>(topic_sub_vis_odom, 10, cb_odom);
     ros::Subscriber sub_pose_update = nh.subscribe<nav_msgs::Odometry>(topic_sub_pose_update, 10, cb_pose_update);
 
+    ros::Subscriber sub_estop_disarm = nh.subscribe<std_msgs::Bool>(topic_sub_estop_disarm, 10, cb_disarm);
+
     pub_control = nh.advertise<mavros_msgs::OverrideRCIn>(topic_pub_control, 10);
     pub_target_pose = nh.advertise<geometry_msgs::PoseStamped>(topic_pub_target_pose, 10);
 
@@ -191,6 +200,12 @@ int main(int argc, char** argv){
     }
 
     return 0;
+}
+
+void cb_disarm(std_msgs::Bool _disarm){
+    if (_disarm.data ^ is_armed){
+        setArming(~_disarm.data);
+    }
 }
 
 void cb_odom(nav_msgs::Odometry _odom){
@@ -532,6 +547,7 @@ void setArming(bool arm) {
   // send request
   if(cmd_client.call(srv)) {
     ROS_INFO(arm ? "Armed" : "Disarmed");
+    is_armed = arm;
   }
   else {
     ROS_ERROR("Failed to update arming");
