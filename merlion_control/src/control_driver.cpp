@@ -4,12 +4,15 @@
 #include <mavros_msgs/OverrideRCIn.h>
 #include <mavros_msgs/CommandLong.h>
 #include <mavros_msgs/SetMode.h>
+#include <std_msgs/Bool.h>
 #include <sensor_msgs/Joy.h>
 
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+
+#include <math.h>
 
 using namespace std;
 
@@ -25,7 +28,20 @@ string topic_sub_vis_odom = "/visual_odom";
 string topic_pub_target_pose = "/merlion/control/target_pose";
 string topic_pub_control = "/mavros/rc/override";
 
-bool use_vis_z = true;
+string topic_sub_estop_disarm = "/merlion/disarm";
+
+bool is_armed = false;
+
+bool use_vis_z = false;
+bool only_depth_control = true;
+
+double target_alt = 0.0;
+double alt_ctrl_signal = 0.0;
+
+double curr_yaw = 1.57;
+double last_yaw = 1.57;
+double target_yaw = 1.57;
+double yaw_ctrl_signal = 0.0;
 
 geometry_msgs::Pose curr_pose;
 geometry_msgs::Pose target_pose;
@@ -117,6 +133,7 @@ void cb_cmd_vel_joy(geometry_msgs::Twist _cmd_vel);
 void cb_joy_signal (const sensor_msgs::Joy joy_signal);
 void cb_odom(nav_msgs::Odometry _odom);
 void cb_pose_update(nav_msgs::Odometry _pose);
+void cb_disarm(std_msgs::Bool _disarm);
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel);
 uint16_t mapToPpm(double _in, double _max, double _min);
@@ -141,6 +158,7 @@ int main(int argc, char** argv){
     nh_param.param<std::string>("topic_pub_control", topic_pub_control, topic_pub_control);
     nh_param.param<double>("cmd_vel_timeout", cmd_vel_timeout, cmd_vel_timeout);
 	nh_param.param<std::string>("topic_sub_joy", topic_sub_joy, topic_sub_joy);
+	nh_param.param<std::string>("topic_sub_estop_disarm", topic_sub_estop_disarm, topic_sub_estop_disarm);
 
     nh_param.param<double>("dir_y", directions[6], directions[6]);
     nh_param.param<double>("dir_x", directions[5], directions[5]);
@@ -162,6 +180,8 @@ int main(int argc, char** argv){
     ros::Subscriber sub_odom = nh.subscribe<nav_msgs::Odometry>(topic_sub_vis_odom, 10, cb_odom);
     ros::Subscriber sub_pose_update = nh.subscribe<nav_msgs::Odometry>(topic_sub_pose_update, 10, cb_pose_update);
 
+    ros::Subscriber sub_estop_disarm = nh.subscribe<std_msgs::Bool>(topic_sub_estop_disarm, 10, cb_disarm);
+
     pub_control = nh.advertise<mavros_msgs::OverrideRCIn>(topic_pub_control, 10);
     pub_target_pose = nh.advertise<geometry_msgs::PoseStamped>(topic_pub_target_pose, 10);
 
@@ -182,6 +202,12 @@ int main(int argc, char** argv){
     return 0;
 }
 
+void cb_disarm(std_msgs::Bool _disarm){
+    if (_disarm.data ^ is_armed){
+        setArming(~_disarm.data);
+    }
+}
+
 void cb_odom(nav_msgs::Odometry _odom){
     curr_pose.position.x = _odom.pose.pose.position.x;
     curr_pose.position.y = _odom.pose.pose.position.y;
@@ -189,6 +215,19 @@ void cb_odom(nav_msgs::Odometry _odom){
 
     curr_pose.orientation = _odom.pose.pose.orientation;
     last_stamp_pose_update = ros::Time::now();
+
+    tf::Quaternion q(
+    curr_pose.orientation.x,
+    curr_pose.orientation.y,
+    curr_pose.orientation.z,
+    curr_pose.orientation.w);
+
+    tf::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    last_yaw = curr_yaw;
+    curr_yaw = yaw;
 }
 
 void cb_pose_update(nav_msgs::Odometry _pose){
@@ -216,52 +255,80 @@ void process_cmd_vel(){
     tf::Transform curr_tf, rel_tf;
     tf::poseMsgToTF(curr_pose, curr_tf);
     tf::poseMsgToTF(rel_pose, rel_tf);
+    if (mode == MODE_ALT_HOLD){
+        double temp_err = target_alt - curr_pose.position.z;
+        alt_ctrl_signal = - temp_err * 800.0;
+        if (alt_ctrl_signal >= 100.0) alt_ctrl_signal = 100.0;
+        if (alt_ctrl_signal <= -100.0) alt_ctrl_signal = -100.0;
 
-    if (autonomous){
-        if (ros::Time::now().toSec() - last_stamp_pose_update.toSec() > pose_update_timeout){
-            if (ros::Time::now().toSec() - last_stamp_warning_pose_timemout.toSec() > pose_timemout_warning_interval){
-                ROS_ERROR("Attempt AUTONOMOUS mode without pose update. Reset velocity!");
-                last_stamp_warning_pose_timemout = ros::Time::now();
-            }
-            // reset target_vel
-            geometry_msgs::Twist vel_reset;
-            target_vel = vel_reset;
+        ROS_INFO("Curr yaw vis: %.3f - Last yaw vis: %.3f", curr_yaw, last_yaw);
 
+        if(!isnan(curr_yaw)) {
+            double temp_err_yaw = target_yaw - curr_yaw;
+            yaw_ctrl_signal = - temp_err_yaw * 200.0;
+            if (yaw_ctrl_signal >= 100.0) yaw_ctrl_signal = 100.0;
+            if (yaw_ctrl_signal <= -100.0) yaw_ctrl_signal = -100.0;
+
+            ROS_INFO("yaw control");
         } else {
-            tf::Transform target_tf_last = target_tf;
-            geometry_msgs::Pose target_pose_last;
-            tf::poseTFToMsg(target_tf_last, target_pose_last);
-            // target_tf = target_tf_last * rel_tf;
-            if (fabs(curr_cmd_vel.linear.x) < 0.02 && fabs(curr_cmd_vel.linear.y) < 0.02 && fabs(curr_cmd_vel.linear.z) < 0.02 && 
-                fabs(curr_cmd_vel.angular.x) < 0.02 && fabs(curr_cmd_vel.angular.y) < 0.02 && fabs(curr_cmd_vel.angular.z) < 0.02)
-            {
-                // Hold position
-            } else {
-                
-                target_tf = curr_tf * rel_tf;
-
-                tf::poseTFToMsg(target_tf, target_pose);
-                if (fabs(curr_cmd_vel.linear.z) <= 0.02){
-                    target_pose.position.z = target_pose_last.position.z;
-                }
-
-                if (fabs(curr_cmd_vel.angular.z) <= 0.02){
-                    target_pose.orientation = target_pose_last.orientation;
-                }
-                tf::poseMsgToTF(target_pose, target_tf);
-                
-            }
-
-            target_vel = calculate_target_vel();
+            yaw_ctrl_signal = 0.0;
         }
-    
-    } else {
+
+        last_err = curr_err;
+
         target_tf = curr_tf * rel_tf;
         target_vel = curr_cmd_vel;
 
         tf::poseTFToMsg(target_tf, target_pose);
-    }
+    } else {
+        alt_ctrl_signal = 0.0;
+        yaw_ctrl_signal = 0.0;
 
+        if (autonomous){
+            if (ros::Time::now().toSec() - last_stamp_pose_update.toSec() > pose_update_timeout){
+                if (ros::Time::now().toSec() - last_stamp_warning_pose_timemout.toSec() > pose_timemout_warning_interval){
+                    ROS_ERROR("Attempt AUTONOMOUS mode without pose update. Reset velocity!");
+                    last_stamp_warning_pose_timemout = ros::Time::now();
+                }
+                // reset target_vel
+                geometry_msgs::Twist vel_reset;
+                target_vel = vel_reset;
+
+            } else {
+                tf::Transform target_tf_last = target_tf;
+                geometry_msgs::Pose target_pose_last;
+                tf::poseTFToMsg(target_tf_last, target_pose_last);
+                // target_tf = target_tf_last * rel_tf;
+                if (fabs(curr_cmd_vel.linear.x) < 0.02 && fabs(curr_cmd_vel.linear.y) < 0.02 && fabs(curr_cmd_vel.linear.z) < 0.02 && 
+                    fabs(curr_cmd_vel.angular.x) < 0.02 && fabs(curr_cmd_vel.angular.y) < 0.02 && fabs(curr_cmd_vel.angular.z) < 0.02)
+                {
+                    // Hold position
+                } else {
+                    
+                    target_tf = curr_tf * rel_tf;
+
+                    tf::poseTFToMsg(target_tf, target_pose);
+                    if (fabs(curr_cmd_vel.linear.z) <= 0.02){
+                        target_pose.position.z = target_pose_last.position.z;
+                    }
+
+                    if (fabs(curr_cmd_vel.angular.z) <= 0.02){
+                        target_pose.orientation = target_pose_last.orientation;
+                    }
+                    tf::poseMsgToTF(target_pose, target_tf);
+                    
+                }
+
+                target_vel = calculate_target_vel();
+            }
+        
+        } else {
+            target_tf = curr_tf * rel_tf;
+            target_vel = curr_cmd_vel;
+
+            tf::poseTFToMsg(target_tf, target_pose);
+        }
+    }
     has_target_pose = true;
     // }
 }
@@ -365,10 +432,10 @@ void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
     if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() < cmd_vel_timeout){
         mavros_msgs::OverrideRCIn msg;
 
-        msg.channels[5] = mapToPpm(directions[5] * lin_x_scaling * target_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
-        msg.channels[6] = mapToPpm(directions[6] * lin_y_scaling * target_vel.linear.y, lin_max_vel, lin_min_vel);     // strafe   (y)
-        msg.channels[2] = mapToPpm(directions[2] * lin_z_scaling * target_vel.linear.z, lin_max_vel, lin_min_vel);     // throttle (z)
-        msg.channels[3] = mapToPpm(directions[3] * rot_z_scaling * target_vel.angular.z, rot_max_vel, rot_min_vel);    // yaw      (wz)
+        msg.channels[4] = mapToPpm(directions[5] * lin_x_scaling * target_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
+        msg.channels[5] = mapToPpm(directions[6] * lin_y_scaling * target_vel.linear.y, lin_max_vel, lin_min_vel);     // strafe   (y)
+        msg.channels[2] = mapToPpm(directions[2] * lin_z_scaling * target_vel.linear.z, lin_max_vel, lin_min_vel) + (int)alt_ctrl_signal;     // throttle (z)
+        msg.channels[3] = mapToPpm(directions[3] * rot_z_scaling * target_vel.angular.z, rot_max_vel, rot_min_vel) + (int)yaw_ctrl_signal;    // yaw      (wz)
 
         if (in_plane) {
             msg.channels[1] = 1500; // roll     (wx)
@@ -379,7 +446,7 @@ void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
             msg.channels[0] = mapToPpm(directions[0] * rot_y_scaling * target_vel.angular.y, rot_max_vel, rot_min_vel); // pitch    (wy)
         }
         
-        msg.channels[4] = 1500; // mode         - not used (change to service)
+        msg.channels[6] = 1500; // mode         - not used (change to service)
         msg.channels[7] = (servo_closed ? 1100 : 1900); // camera-tilt  - not used
 
         pub_control.publish(msg);
@@ -419,8 +486,10 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
 
         if (check_rising_edge(chan_btn_alt)){
             mode = MODE_ALT_HOLD;
+            target_alt = curr_pose.position.z;
+            target_yaw = target_yaw;
             ROS_INFO("Attemp changing mode: ALT_HOLD");   
-            setMode("ALT_HOLD");
+            // setMode("ALT_HOLD");
         }
 
         if (check_rising_edge(chan_btn_auto)){
@@ -478,6 +547,7 @@ void setArming(bool arm) {
   // send request
   if(cmd_client.call(srv)) {
     ROS_INFO(arm ? "Armed" : "Disarmed");
+    is_armed = arm;
   }
   else {
     ROS_ERROR("Failed to update arming");
