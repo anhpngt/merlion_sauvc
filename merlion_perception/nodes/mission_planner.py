@@ -92,19 +92,27 @@ class Mission(object):
         #2.move 10m reverse.
         #3.while holding yaw=0 and depth
 
-        rospy.loginfo("init qualification task")
-        forward_done=False
-        
+        rospy.loginfo("Attempting qualification task...")
+        forward_done = False
+        target_x = self.x0 + distance
+        target_y = self.y0
 
         while not rospy.is_shutdown():
-            if self.x0 < distance + 1 and forward_done == False:
-                rospy.loginfo("0.1 moving forward")
-                self.pub_cmd_vel(self.forward_speed, 0, 0)
+            err_y = self.y0 - target_y # PID y-axis only
+            if err_y > 1.0:
+                err_y = 1.0
+            
+            # vel_X
+            if forward_done == False:
+                rospy.loginfo("(0.1) Moving forward")
+                self.pub_cmd_vel(self.forward_speed, -err_y * self.side_speed, 0)
+                if self.x0 > target_x + 0.5:
+                    forward_done = True
+                    target_x -= distance # back to original x
             else:
-                rospy.loginfo("0.2 reversing")
-                forward_done=True
-                self.pub_cmd_vel(-self.forward_speed, 0, 0)
-                if self.x0<1:
+                rospy.loginfo("(0.2) Reversing")
+                self.pub_cmd_vel(-self.forward_speed, -err_y * self.side_speed, 0)
+                if self.x0 < target_x - 0.5:
                     break
 
         rospy.loginfo("qualification done")

@@ -6,24 +6,7 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 ## Goals
 
 ### TODO list
-Hardware:
-- [ ] Acoustics
-- [x] Depth sensor
-- [ ] EStop/Kill switch
-- [x] Frames
-- [x] Servo
-
-Software:
-- [x] Mission Manager
-- [x] Qualification node
-- [x] Mission 1 node
-- [x] Mission 2 node
-- [x] Mission 3 node
-- [x] Object detection, shape/color-based
-- [ ] Object detection, deep learning
-- [x] Vel_controller
-- [x] SLAM
-
+- [ ] Win
 
 ## Requirements
 - ROS Kinetic (Ubuntu 16.04 LTS). 
@@ -43,7 +26,7 @@ Additionally, install `bluerov` package from [source](https://github.com/bluerob
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
 
-IP address 192.168.1.119 was reserved for NUC
+IP address 192.168.1.119(eth0)/192.168.1.129(wlan) was reserved for NUC
 
 From ground PC:
 ```
@@ -64,15 +47,11 @@ From ground PC:
 ```
 ssh usv@192.168.1.119
 ```
-or
-```
-ssh usv@usv
-```
 
 Add these lines on ground PC into *~/.bashrc* to work with NUC ROS master
 ```
 export ROS_MASTER_URI=http://192.168.1.119:11311
-export ROS_IP=192.168.1.xxx # your `hostname -I` result
+export ROS_IP=192.168.1.xxx # your IP
 ```
 Remove (comment) those lines if you want to work with a local ROS master
 
