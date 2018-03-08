@@ -3,7 +3,7 @@
 
 ros::NodeHandle nh;
 std_msgs::Bool bool_msg;
-ros::Publisher switch_pub("/merlion/disarm_switch", &bool_msg);
+ros::Publisher switch_pub("/merlion/disarm", &bool_msg);
 
 void setup() {
   pinMode(8, INPUT_PULLUP);
