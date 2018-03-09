@@ -3,9 +3,9 @@
     <node pkg="merlion_control"     type="control_driver"   name="control_driver"   output="screen">
 
         <param name="use_fixed_alt" value="true"/>
-        <param name="target_fixed_alt" value="-1.0"/>
+        <param name="target_fixed_alt" value="-0.50"/>
 
-        <param name="use_fixed_yaw" value="true"/>
+        <param name="use_fixed_yaw" value="false"/>
         <param name="target_fixed_yaw" value="2.8"/>
 
         <param name="dir_y" value="-1.0"/>

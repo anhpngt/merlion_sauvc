@@ -24,7 +24,7 @@ class Mission(object):
     timestep = 0.1
 
     #cmd_vel speeds, in m/s and rad/s
-    forward_speed = 4*timestep
+    forward_speed = 10*timestep
     side_speed = 2*timestep
     yaw_speed = 10*math.pi/180*timestep
 
@@ -78,7 +78,7 @@ class Mission(object):
 
         for i in self.seq:
             if i == 0:
-                self.mission_0(distance=1)
+                self.mission_0(distance=3)
             elif i == 1:
                 self.mission_1()
             elif i == 2:
@@ -105,13 +105,13 @@ class Mission(object):
             # vel_X
             if forward_done == False:
                 rospy.loginfo("(0.1) Moving forward")
-                self.pub_cmd_vel(self.forward_speed, -err_y * self.side_speed, 0)
+                self.pub_cmd_vel(self.forward_speed, 0, 0)
                 if self.x0 > target_x + 0.5:
                     forward_done = True
                     target_x -= distance # back to original x
             else:
                 rospy.loginfo("(0.2) Reversing")
-                self.pub_cmd_vel(-self.forward_speed, -err_y * self.side_speed, 0)
+                self.pub_cmd_vel(-self.forward_speed, 0, 0)
                 if self.x0 < target_x - 0.5:
                     break
 
