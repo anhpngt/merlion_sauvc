@@ -5,6 +5,7 @@
 #include <mavros_msgs/CommandLong.h>
 #include <mavros_msgs/SetMode.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Float64.h>
 #include <sensor_msgs/Joy.h>
 
 #include <nav_msgs/Odometry.h>
@@ -18,6 +19,8 @@ using namespace std;
 
 string node_name = "merlion_control_driver";
 
+std::string topic_sub_rel_alt = "/mavros/global_position/rel_alt";
+
 std::string topic_sub_joy = "/joy";
 string topic_sub_cmd_vel = "/merlion/control/cmd_vel";
 string topic_sub_cmd_vel_joy = "/merlion/control/cmd_vel_joy";
@@ -30,7 +33,11 @@ string topic_pub_control = "/mavros/rc/override";
 
 string topic_sub_estop_disarm = "/merlion/disarm";
 
+string topic_pub_curr_cmp_hdg = "/mavros/global_position/compass_hdg_rad";
+
 bool is_armed = false;
+
+bool use_vis_yaw = false;
 
 bool use_vis_z = false;
 bool only_depth_control = true;
@@ -151,6 +158,7 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal);
 void cb_vis_odom(nav_msgs::Odometry _odom);
 void cb_px4_odom(nav_msgs::Odometry _pose);
 void cb_disarm(std_msgs::Bool _disarm);
+void cb_rel_alt(std_msgs::Float64 _rel_alt);
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel);
 uint16_t mapToPpm(double _in, double _max, double _min);
@@ -161,10 +169,13 @@ void setMode(string mode);
 
 void process_cmd_vel();
 void publish_target_pose();
+void publish_curr_compass_heading();
 geometry_msgs::Twist gen_twist(double data, int index);
 geometry_msgs::Twist calculate_target_vel();
 
 geometry_msgs::Pose twist_to_rel_pose(geometry_msgs::Twist _twist, double dt);
+
+ros::Publisher pub_curr_cmp_hdg;
 
 int main(int argc, char** argv){
     ros::init(argc, argv, node_name);
@@ -195,6 +206,8 @@ int main(int argc, char** argv){
     nh_param.param<bool>    ("use_fixed_yaw",   use_fixed_yaw,      use_fixed_yaw);
     nh_param.param<double>  ("target_fixed_yaw",target_fixed_yaw,   target_fixed_yaw);
 
+    nh_param.param<bool>    ("use_vis_yaw",   use_vis_yaw,      use_vis_yaw);
+
     ros::Subscriber sub_cmd_vel = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel, 10, cb_cmd_vel);
     ros::Subscriber sub_cmd_vel_joy = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel_joy, 10, cb_cmd_vel_joy);
 	ros::Subscriber sub_joy = nh.subscribe<sensor_msgs::Joy>(topic_sub_joy, 10, cb_joy_signal);
@@ -202,10 +215,13 @@ int main(int argc, char** argv){
     ros::Subscriber sub_odom = nh.subscribe<nav_msgs::Odometry>(topic_sub_vis_odom, 10, cb_vis_odom);
     ros::Subscriber sub_pose_update = nh.subscribe<nav_msgs::Odometry>(topic_sub_pose_update, 10, cb_px4_odom);
 
+    ros::Subscriber sub_rel_alt = nh.subscribe<std_msgs::Float64>(topic_sub_rel_alt, 10, cb_rel_alt);
+
     ros::Subscriber sub_estop_disarm = nh.subscribe<std_msgs::Bool>(topic_sub_estop_disarm, 10, cb_disarm);
 
     pub_control = nh.advertise<mavros_msgs::OverrideRCIn>(topic_pub_control, 10);
     pub_target_pose = nh.advertise<geometry_msgs::PoseStamped>(topic_pub_target_pose, 10);
+    pub_curr_cmp_hdg = nh.advertise<std_msgs::Float64>(topic_pub_curr_cmp_hdg, 10);
 
     cmd_client = nh.serviceClient<mavros_msgs::CommandLong>("/mavros/cmd/command");
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
@@ -222,6 +238,9 @@ int main(int argc, char** argv){
     }
 
     return 0;
+}
+void cb_rel_alt(std_msgs::Float64 _rel_alt){
+    curr_pose.position.z = _rel_alt.data;
 }
 
 void cb_disarm(std_msgs::Bool _disarm){
@@ -289,7 +308,10 @@ void cb_px4_odom(nav_msgs::Odometry _odom){
     curr_pit = pitch;
 
     last_yaw = curr_yaw;
-    curr_yaw = curr_yaw_vis + (curr_yaw_cmp - mark_yaw_cmp);
+    if (use_vis_yaw) curr_yaw = curr_yaw_vis + (curr_yaw_cmp - mark_yaw_cmp);
+    else curr_yaw = yaw;
+
+    publish_curr_compass_heading();
 }
 
 void cb_cmd_vel(geometry_msgs::Twist _cmd_vel){
@@ -304,6 +326,12 @@ void cb_cmd_vel_joy(geometry_msgs::Twist _cmd_vel){
         curr_cmd_vel = _cmd_vel;
         last_stamp_cmd_vel = ros::Time::now();
     }
+}
+
+void publish_curr_compass_heading(){
+    std_msgs::Float64 msg;
+    msg.data = curr_yaw_cmp;
+    pub_curr_cmp_hdg.publish(msg);
 }
 
 void process_cmd_vel(){
@@ -545,11 +573,27 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
 
         if (check_rising_edge(chan_btn_alt)){
             mode = MODE_ALT_HOLD;
-            if (use_fixed_alt) target_alt = target_fixed_alt;
-            else target_alt = curr_pose.position.z;
+            // if (use_fixed_alt) target_alt = target_fixed_alt;
+            // else target_alt = curr_pose.position.z;
             
-            if (use_fixed_yaw) target_yaw = target_fixed_yaw;
-            else target_yaw = curr_yaw;
+            // if (use_fixed_yaw) target_yaw = target_fixed_yaw;
+            // else target_yaw = curr_yaw;
+
+            if (use_fixed_alt) {
+                target_alt = target_fixed_alt;
+                ROS_WARN("Hold fixed altitude: %.3f", target_fixed_alt);
+            } else {
+                target_alt = curr_pose.position.z;
+                ROS_INFO("Hold curr altitude: %.3f", target_alt);
+            }
+            
+            if (use_fixed_yaw) {
+                target_yaw = target_fixed_yaw;
+                ROS_WARN("Hold fixed heading: %.3f", target_fixed_yaw);
+            } else {
+                target_yaw = curr_yaw;
+                ROS_INFO("Hold curr heading: %.3f", curr_yaw);
+            }
             
             ROS_INFO("Attemp changing mode: ALT_HOLD");   
             // setMode("ALT_HOLD");
@@ -612,18 +656,24 @@ void setArming(bool arm) {
     ROS_INFO(arm ? "Armed" : "Disarmed");
     is_armed = arm;
     if(arm){
-	mode = MODE_ALT_HOLD;
+	    mode = MODE_ALT_HOLD;
         curr_yaw_vis = curr_yaw_cmp;
         mark_yaw_cmp = curr_yaw_cmp;
 
         if (use_fixed_alt) {
             target_alt = target_fixed_alt;
-            ROS_WARN("Use fixed altitude: %.3f", target_fixed_alt);
+            ROS_WARN("Hold fixed altitude: %.3f", target_fixed_alt);
+        } else {
+            target_alt = curr_pose.position.z;
+            ROS_INFO("Hold curr altitude: %.3f", target_alt);
         }
         
         if (use_fixed_yaw) {
             target_yaw = target_fixed_yaw;
-            ROS_WARN("Use fixed heading: %.3f", target_fixed_yaw);
+            ROS_WARN("Hold fixed heading: %.3f", target_fixed_yaw);
+        } else {
+            target_yaw = curr_yaw;
+            ROS_INFO("Hold curr heading: %.3f", curr_yaw);
         }
     }
   }
