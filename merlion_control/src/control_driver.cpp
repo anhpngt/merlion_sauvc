@@ -120,7 +120,7 @@ ros::Publisher pub_target_pose;
 bool has_target_pose = false;
 
 bool autonomous = false;
-bool use_cmd_vel_joy = true;
+bool use_cmd_vel_joy = false;
 
 int chan_btn_arm = 7;
 int chan_btn_dis = 6;
