@@ -1,2 +1,2 @@
 #!/bin/bash
-rosbag record --output-prefix=AUV --buffsize=0 /down/image_rect_color /front/image_rect_color /mavros/global_position/local /mavros/imu/data
+rosbag record --output-prefix=AUV --buffsize=0 /down/image_rect_color /front/image_rect_color -e "/mavros/(.*)"
