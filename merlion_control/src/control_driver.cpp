@@ -529,6 +529,14 @@ geometry_msgs::Pose twist_to_rel_pose(geometry_msgs::Twist _twist, double dt){
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
     if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() < cmd_vel_timeout){
+        target_vel.linear.x = 0.0;
+        target_vel.linear.y = 0.0;
+        target_vel.linear.z = 0.0;
+        
+        target_vel.angular.x = 0.0;
+        target_vel.angular.y = 0.0;
+        target_vel.angular.z = 0.0;
+    }
         mavros_msgs::OverrideRCIn msg;
 
         msg.channels[4] = mapToPpm(directions[5] * lin_x_scaling * target_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
@@ -549,8 +557,6 @@ void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
         msg.channels[7] = (servo_closed ? 1100 : 1900); // camera-tilt  - not used
 
         pub_control.publish(msg);
-
-    }
 }
 
 void cb_joy_signal (const sensor_msgs::Joy joy_signal){		
