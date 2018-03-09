@@ -11,7 +11,7 @@ from sensor_msgs.msg import PointCloud2, Image
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from visualization_msgs.msg import MarkerArray, Marker
-
+from std_msgs.msg import Bool
 import time
 import random
 
@@ -24,9 +24,9 @@ class Mission(object):
     timestep = 0.1
 
     #cmd_vel speeds, in m/s and rad/s
-    forward_speed = 10*timestep
-    side_speed = 2*timestep
-    yaw_speed = 10*math.pi/180*timestep
+    forward_speed = 0.8
+    side_speed = 0.5
+    yaw_speed = 6*math.pi/180
 
     #ODOM
     x0, y0, z0 = 0, 0, 0
@@ -50,8 +50,14 @@ class Mission(object):
     bucket_seen = False
 
     #look around bias, estimated global position of gate, bucket, and flare
-    detection_bias = [[9, -3], [25, -4], [19, -6]]
-    # detection_bias=[[0, 0], [0, 0], [0, 0]]
+    detection_bias=[[0, 0], [0, 0], [0, 0]]
+    # detection_bias = [[9, -3], [25, -4], [19, -6]]
+
+    #release ball on mission 2
+    drop_ball=False
+
+    #angular threshold for adjusting yaw
+    ang_thres=5*math.pi/180
 
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
@@ -67,18 +73,20 @@ class Mission(object):
 
         #sub odom
         rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
-        while not self.odom_received and not rospy.is_shutdown():
-            rospy.sleep(1)
-            rospy.loginfo("Waiting for odom...")
+        # while not self.odom_received and not rospy.is_shutdown():
+        #     rospy.sleep(1)
+        #     rospy.loginfo("Waiting for odom...")
 
         ####Publishers####
         self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
         self.front_img_pub = rospy.Publisher('/mission/front_img', Image, queue_size=1)
         self.down_img_pub = rospy.Publisher('/mission/down_img', Image, queue_size=1)
+        self.drop_ball_pub= rospy.Publisher('/drop_ball', Bool, queue_size=1)
+
 
         for i in self.seq:
             if i == 0:
-                self.mission_0(distance=3)
+                self.mission_0()
             elif i == 1:
                 self.mission_1()
             elif i == 2:
@@ -86,34 +94,16 @@ class Mission(object):
             elif i == 3:
                 self.mission_3()
 
-    def mission_0(self, distance=10):
+    def mission_0(self):
         ####qualification####
         #1.move 10m forward
         #2.move 10m reverse.
         #3.while holding yaw=0 and depth
 
         rospy.loginfo("Attempting qualification task...")
-        forward_done = False
-        target_x = self.x0 + distance
-        target_y = self.y0
-
         while not rospy.is_shutdown():
-            err_y = self.y0 - target_y # PID y-axis only
-            if err_y > 1.0:
-                err_y = 1.0
-            
-            # vel_X
-            if forward_done == False:
-                rospy.loginfo("(0.1) Moving forward")
-                self.pub_cmd_vel(self.forward_speed, 0, 0)
-                if self.x0 > target_x + 0.5:
-                    forward_done = True
-                    target_x -= distance # back to original x
-            else:
-                rospy.loginfo("(0.2) Reversing")
-                self.pub_cmd_vel(-self.forward_speed, 0, 0)
-                if self.x0 < target_x - 0.5:
-                    break
+            self.pub_cmd_vel(self.forward_speed, 0, 0)
+
 
         rospy.loginfo("qualification done")
 
@@ -127,7 +117,7 @@ class Mission(object):
         rospy.loginfo("init mission 1")
 
         #step 1 
-        self.look_around(0, 'yawing', 15)
+        self.look_around(1, 'yawing', 15)
 
         #distance threshold in sideway movement
         thres=0.2
@@ -164,7 +154,6 @@ class Mission(object):
         #6. swicth to visual servo via downward cam
         #7. release ball after bucket locked
         #8. reverse 3m
-        #9. rotate 
         ###########################
         rospy.loginfo("init mission 2")
         
@@ -172,7 +161,7 @@ class Mission(object):
         offset=-2
         #step 1
 
-        self.look_around(1, 'yawing', 10)
+        self.look_around(2, 'yawing', 10)
         
         #step 4 enclosing 2 and 3
         while not rospy.is_shutdown():
@@ -195,10 +184,9 @@ class Mission(object):
                     break 
 
         #step 5
-        #tell motor controller to switch to blind mode
-        self.blind_mode()
+
         #set few timesteps to foward amount of 2 m ##TODO tune ts
-        ts=1
+        ts=3
         for i in range(int(ts/self.timestep)):
             rospy.loginfo("blind motion")
             self.pub_cmd_vel(self.forward_speed, 0, 0)
@@ -208,7 +196,7 @@ class Mission(object):
         #step 6
         sign=0
         while not rospy.is_shutdown():   
-            
+            #pixel to meter
             k=self.forward_speed/320
 
             if self.bucket_seen is True:
@@ -223,7 +211,6 @@ class Mission(object):
                 if abs(vs_x)<0.2 and abs(vs_y)<0.2 and self.streak>5:
                     break
             else:
-
                 rospy.loginfo("2.6 visual servo random search left&right")
                 #search to left or right
                 #random direction to go amount of #2m
@@ -245,30 +232,14 @@ class Mission(object):
         rospy.sleep(3)
 
         #step 8
-        #set few timesteps to foward
-        ts=3
+        #set few timesteps to reverse
+        ts=10
         for i in range(int(ts/self.timestep)):
             rospy.loginfo("blind motion")
             self.pub_cmd_vel(-self.forward_speed, 0, 0)
             if rospy.is_shutdown():
                 return
-        #switch back to localizer mode
-        self.blind_mode()
-
-
-        #step 9
-        #rotate facing -180/180 deg
-        yaw_des=math.pi
-        while not rospy.is_shutdown():            
-            #step 2
-            error_yaw=yaw_des-self.yaw0
-            error_yaw=math.atan2(math.sin(error_yaw), math.cos(error_yaw))
-            ang_thres=10*math.pi/180
-
-            if abs(error_yaw)>ang_thres:
-                sign=np.sign(error_yaw)
-                self.pub_cmd_vel(0, 0, sign*self.yaw_speed)
-
+       
         rospy.loginfo("mission 2 success")
 
     def mission_3(self):
@@ -281,7 +252,7 @@ class Mission(object):
         rospy.loginfo("init mission 3")
 
         #step 1
-        self.look_around(2, 'zigzag', 15)
+        self.look_around(3, 'zigzag', 15)
         
         #step 4 enclosing 2 and 3
         while not rospy.is_shutdown():            
@@ -291,10 +262,10 @@ class Mission(object):
             yaw_des=math.atan2(y-self.y0, x-self.x0)
             error_yaw=yaw_des-self.yaw0
             error_yaw=math.atan2(math.sin(error_yaw), math.cos(error_yaw))
-            ang_thres=1*math.pi/180
+
 
             rospy.loginfo(error_yaw*180/math.pi)
-            if abs(error_yaw)>ang_thres:# and error_dis>dis_thres:
+            if abs(error_yaw)>self.ang_thres:# and error_dis>dis_thres:
                 rospy.loginfo("3.2 yawing facing flare")
                 sign=np.sign(error_yaw)
                 
@@ -315,15 +286,12 @@ class Mission(object):
 
         rospy.loginfo("mission 3 success")
 
-    def angle_diff(self, minuend, subtrahend): 
-        diff = minuend - subtrahend
-        return math.atan2(math.sin(diff), math.cos(diff))
 
-    def look_around(self, i, mode, conf_thres=20):
-        txt=str(i+1)+".1 lookaround"
+    def look_around(self, mission_no, mode, conf_thres=10):
+        txt=str(mission_no)+".1 lookaround"
         rospy.loginfo(txt)
 
-        bias=self.detection_bias[i]
+        bias=self.detection_bias[mission_no-1]
         rospy.loginfo(bias)
 
 
@@ -338,8 +306,8 @@ class Mission(object):
 
                 error_yaw=yaw_des-self.yaw0
                 error_yaw=math.atan2(math.sin(error_yaw), math.cos(error_yaw))
-                ang_thres=1*math.pi/180
-                if abs(error_yaw)>ang_thres:# and error_dis>dis_thres:
+
+                if abs(error_yaw)>self.ang_thres:# and error_dis>dis_thres:
                     # rospy.loginfo("yawing towards bias")
                     sign=np.sign(error_yaw)
                     self.pub_cmd_vel(0, 0, sign*self.yaw_speed)
@@ -358,7 +326,7 @@ class Mission(object):
             base_pos_y = self.y0
             yaw_limit = 45.0  * math.pi/ 180.0
             trl_limit = 1.5 # forward 2m each time
-            ang_thres=0.03
+
 
             if bias[0]==0 and bias[1]==0:
                 #no bias
@@ -383,7 +351,7 @@ class Mission(object):
 
                 elif current_state == states[2]:
                     self.pub_cmd_vel(0, 0, self.yaw_speed)
-                    if abs(self.angle_diff(self.yaw0, original_yaw)) < ang_thres: # threshold to go back to original yaw, maybe need something more accurate for this
+                    if abs(self.angle_diff(self.yaw0, original_yaw)) < self.ang_thres: # threshold to go back to original yaw, maybe need something more accurate for this
                         current_state = states[3]
                         rospy.loginfo('Switch from {} to {}'.format(states[2], states[3]))
 
@@ -403,18 +371,18 @@ class Mission(object):
                 if math.sqrt((x-self.x0)**2+(y-self.y0)**2)<2:
                     break
 
-
-
             #face forwward
             while not rospy.is_shutdown():
                 error_yaw=self.angle_diff(0, self.yaw0)
-                if abs(error_yaw) < ang_thres: # threshold to go back to original yaw, maybe need something more accurate for this
+                if abs(error_yaw) < self.ang_thres: # threshold to go back to original yaw, maybe need something more accurate for this
                     break
                 else:
                     sign=np.sign(error_yaw)
                     self.pub_cmd_vel(0, 0, sign*self.yaw_speed)
 
         elif mode == 'zigzag':
+
+
             states = ['left', 'forward_l', 'right', 'forward_r']
             current_state = states[0]
             forward_limit = 1.5 
@@ -428,7 +396,6 @@ class Mission(object):
                 del_x=bias[0]-self.x0
                 del_y=bias[1]-self.y0
                 diff_y=del_y*math.cos(self.yaw0)-del_x*math.sin(self.yaw0)
-                print(diff_y)
                 base_pos_x = self.x0 + sideway_limit / 2.0 * math.sin(original_yaw)
                 base_pos_y = self.y0 + diff_y - sideway_limit / 2.0 * math.cos(original_yaw)
             x, y, conf=self.detections[i]
@@ -486,30 +453,9 @@ class Mission(object):
             rospy.loginfo('Invalid look_around() mode!')
             return
         
-
-
         rospy.loginfo('Finished searching!')        
         return
 
-
-    def heatmap_callback(self, msg):
-        heatmap=self.bridge.imgmsg_to_cv2(msg, "bgr8")
-
-        #find each channel's max and confidence
-        for i in range(3):
-            ind=np.argmax(heatmap[:, :, i])
-            ind_x=int(ind/heatmap.shape[1])
-            ind_y=ind%heatmap.shape[1]
-
-            #convert to global map
-            x=(heatmap.shape[0]-ind_x)/self.ppm-self.init_pos[0]
-            y=self.init_pos[1]-ind_y/self.ppm
-
-            conf=np.amax(heatmap[:, :, i])
-
-            self.detections[i]=np.array([x, y, conf])
-
-        # rospy.loginfo(self.detections)
 
 
     def down_img_callback(self, msg):
@@ -592,16 +538,14 @@ class Mission(object):
         self.down_img_pub.publish(self.bridge.cv2_to_imgmsg(np.hstack([img, combined_mask]), "bgr8"))
 
     def release_ball(self):
+        msg=Bool()
+
+        for i in range(10/self.timestep):
+            msg.data=True
+            self.drop_ball_pub.publish(msg)
+            rospy.sleep(self.timestep)
+
         rospy.loginfo("ball released")
-
-    def blind_mode(self):
-        #toggling for off and on blind mode
-        #motor controller passes cmd_vel from mission planner immediately without localization
-        msg=Twist()
-        msg.angular.x=50
-        msg.angular.y=50
-        self.cmd_vel_pub.publish(msg)
-
 
 
     def pub_cmd_vel(self, vx, vy, vyaw):
@@ -613,25 +557,44 @@ class Mission(object):
         self.cmd_vel_pub.publish(msg)
         rospy.sleep(self.timestep)
 
-    def img_correction(self, img):
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(6, 6))
-        res=np.zeros_like(img)
+
+    def heatmap_callback(self, msg):
+        heatmap=self.bridge.imgmsg_to_cv2(msg, "bgr8")
+
+        #find each channel's max and confidence
         for i in range(3):
-            res[:, :, i] = clahe.apply(img[:, :, i])
-        return res
+            ind=np.argmax(heatmap[:, :, i])
+            ind_x=int(ind/heatmap.shape[1])
+            ind_y=ind%heatmap.shape[1]
+
+            #convert to global map
+            x=(heatmap.shape[0]-ind_x)/self.ppm-self.init_pos[0]
+            y=self.init_pos[1]-ind_y/self.ppm
+
+            conf=np.amax(heatmap[:, :, i])
+
+            self.detections[i]=np.array([x, y, conf])
+
+
+    def angle_diff(self, minuend, subtrahend): 
+        diff = minuend - subtrahend
+        return math.atan2(math.sin(diff), math.cos(diff))
 
 
     def odom_callback(self, msg):
         self.x0 = msg.pose.pose.position.x
         self.y0 = msg.pose.pose.position.y
         self.z0 = msg.pose.pose.position.z
-        # rospy.loginfo(self.z0)
         self.roll0, self.pitch0, self.yaw0 = euler_from_quaternion((msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w))
         self.odom_received = True
         
 
-
-
+    def img_correction(self, img):
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(6, 6))
+        res=np.zeros_like(img)
+        for i in range(3):
+            res[:, :, i] = clahe.apply(img[:, :, i])
+        return res
 
 ##########################
 ##########main############
