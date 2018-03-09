@@ -528,7 +528,7 @@ geometry_msgs::Pose twist_to_rel_pose(geometry_msgs::Twist _twist, double dt){
 }
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
-    if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() < cmd_vel_timeout){
+    if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() > cmd_vel_timeout){
         target_vel.linear.x = 0.0;
         target_vel.linear.y = 0.0;
         target_vel.linear.z = 0.0;
