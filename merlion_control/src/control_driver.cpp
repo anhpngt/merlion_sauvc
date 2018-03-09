@@ -111,7 +111,7 @@ double dir_wx = 1.0;   // wy
 double dir_wy = 1.0;   // wx
 double dir_wz = 1.0;   // wz
 
-double cmd_vel_timeout = 0.2; // sec
+double cmd_vel_timeout = 1.0; // sec
 ros::Time last_stamp_cmd_vel;
 geometry_msgs::Twist curr_cmd_vel;
 
