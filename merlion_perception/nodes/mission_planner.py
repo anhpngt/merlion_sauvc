@@ -168,38 +168,38 @@ class Mission(object):
         offset=-2
         #step 1
 
-        # self.look_around(1, 'yawing', 10)
+        self.look_around(1, 'yawing', 10)
         
-        # #step 4 enclosing 2 and 3
-        # while not rospy.is_shutdown():
-        #     x, y, conf=self.detections[1]
+        #step 4 enclosing 2 and 3
+        while not rospy.is_shutdown():
+            x, y, conf=self.detections[1]
 
-        #     #step 2
-        #     error_y=y-self.y0
-        #     if abs(error_y)>thres:
-        #         rospy.loginfo("2.2 moving sideway")
-        #         sign=np.sign(error_y)
-        #         self.pub_cmd_vel(0, sign*self.side_speed,0)
-        #     else:
-        #         #step 3
+            #step 2
+            error_y=y-self.y0
+            if abs(error_y)>thres:
+                rospy.loginfo("2.2 moving sideway")
+                sign=np.sign(error_y)
+                self.pub_cmd_vel(0, sign*self.side_speed,0)
+            else:
+                #step 3
                 
-        #         if x+offset-self.x0>0:
-        #             rospy.loginfo("2.3 move forward")
-        #             self.pub_cmd_vel(self.forward_speed, 0, 0)
-        #         else:
-        #             #bravo we're near the bucket
-        #             break 
+                if x+offset-self.x0>0:
+                    rospy.loginfo("2.3 move forward")
+                    self.pub_cmd_vel(self.forward_speed, 0, 0)
+                else:
+                    #bravo we're near the bucket
+                    break 
 
-        # #step 5
-        # #tell motor controller to switch to blind mode
-        # self.blind_mode()
-        # #set few timesteps to foward amount of 2 m ##TODO tune ts
-        # ts=1
-        # for i in range(int(ts/self.timestep)):
-        #     rospy.loginfo("blind motion")
-        #     self.pub_cmd_vel(self.forward_speed, 0, 0)
-        #     if rospy.is_shutdown():
-        #         return
+        #step 5
+        #tell motor controller to switch to blind mode
+        self.blind_mode()
+        #set few timesteps to foward amount of 2 m ##TODO tune ts
+        ts=1
+        for i in range(int(ts/self.timestep)):
+            rospy.loginfo("blind motion")
+            self.pub_cmd_vel(self.forward_speed, 0, 0)
+            if rospy.is_shutdown():
+                return
             
         #step 6
         sign=0
