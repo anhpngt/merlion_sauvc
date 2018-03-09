@@ -2,7 +2,7 @@
 <launch>
     <arg name="use_front" default="true"/>
     <arg name="use_down" default="true"/>
-    <arg name="arduino" default="false"/>
+    <arg name="arduino" default="true"/>
 
     <include if="$(arg use_front)"
         file="$(find merlion_bringup)/launch/sensors/logi_c920.launch">
