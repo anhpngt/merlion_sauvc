@@ -73,6 +73,7 @@ class Localizer(object):
         while not rospy.is_shutdown() and not self.switch_init:
             rate.sleep()
         rospy.loginfo('Received arming, initialize!')
+        time.sleep(10)
         waitInitSub.unregister()
 
         ####Subscribers####
