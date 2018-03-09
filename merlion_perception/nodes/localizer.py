@@ -37,7 +37,7 @@ class Localizer(object):
     pos_y=0
 
     last_yaw=0
-    last_height=2.6
+    last_height=1.5
 
     last_yaw_count=0
 
@@ -54,7 +54,7 @@ class Localizer(object):
     first=True
 
     #stores absolute imu direction of pool frame, if not avail set to 0
-    yaw_init_offset=125*math.pi/180
+    yaw_init_offset=0 #125*math.pi/180
 
     with_visual_correction=True
 
@@ -78,8 +78,7 @@ class Localizer(object):
         ####Subscribers####
         # sub to downward cam as main for localizer
         rospy.Subscriber("/down/image_rect_color", Image, self.img_callback, queue_size = 1)
-        # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.img_callback, queue_size = 1)
-        
+
         #sub to imu
         rospy.Subscriber("/mavros/imu/data", Imu, self.imu_callback, queue_size=1)
 
@@ -107,15 +106,18 @@ class Localizer(object):
         # msg.orientation
 
         self.imu_roll, self.imu_pitch,  yaw= euler_from_quaternion((msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w))        
-        print(yaw*180/math.pi)
-        self.imu_yaw=yaw-self.yaw_init_offset
+        
         
         if self.first and self.yaw_init_offset==0:
-            self.yaw_init_offset=self.imu_yaw
-            
+            print("blabla")
+            self.yaw_init_offset=yaw
+
+        self.imu_yaw=yaw-self.yaw_init_offset
+                    
         if self.first:
             self.first=False
-        # print(self.imu_yaw)
+        
+        print(yaw*180/math.pi, self.imu_yaw*180/math.pi, self.yaw_init_offset*180/math.pi)
 
     def img_callback(self, msg):
         start_time=time.time()
@@ -272,7 +274,7 @@ class Localizer(object):
 
         self.frame_counter+=1
 
-        print("total time: "+str(time.time()-start_time))
+        # print("total time: "+str(time.time()-start_time))
 
 
     def predict_depth(self, area):
@@ -328,7 +330,6 @@ class Localizer(object):
     def pub_odom(self, x, y, h, yaw):
         print("-----")
         v_yaw=yaw*math.pi/180
-        print(yaw, self.imu_yaw*180/math.pi)
         if self.with_visual_correction:
             yaw=yaw*math.pi/180+self.imu_yaw
             if self.first:
@@ -364,13 +365,10 @@ class Localizer(object):
 
         thres=0.9
         # print(yaw*180/math.pi)
-        # if not self.first and h-self.last_height>thres:
-        #     h=self.last_height
-        # elif h==0:
-        #     h=self.last_height-0.1
-        #     h=np.clip(h, 0, 1)
-        # elif h<0.2:
-        #     h=self.last_height
+        if not self.first and h-self.last_height>thres:
+            h=self.last_height
+        elif h==0:
+            h=self.last_height
 
 
         self.height_pred.append(h)

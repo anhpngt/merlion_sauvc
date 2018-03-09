@@ -19,9 +19,9 @@ using namespace std;
 
 string node_name = "merlion_control_driver";
 
-std::string topic_sub_rel_alt = "/mavros/global_position/rel_alt";
+string topic_sub_rel_alt = "/mavros/global_position/rel_alt";
 
-std::string topic_sub_joy = "/joy";
+string topic_sub_joy = "/joy";
 string topic_sub_cmd_vel = "/merlion/control/cmd_vel";
 string topic_sub_cmd_vel_joy = "/merlion/control/cmd_vel_joy";
 
@@ -32,8 +32,10 @@ string topic_pub_target_pose = "/merlion/control/target_pose";
 string topic_pub_control = "/mavros/rc/override";
 
 string topic_sub_estop_disarm = "/merlion/disarm";
-
+string topic_sub_drop_ball = "/merlion/drop_ball";
 string topic_pub_curr_cmp_hdg = "/mavros/global_position/compass_hdg_rad";
+
+
 
 bool is_armed = false;
 
@@ -109,7 +111,7 @@ double dir_wx = 1.0;   // wy
 double dir_wy = 1.0;   // wx
 double dir_wz = 1.0;   // wz
 
-double cmd_vel_timeout = 0.2; // sec
+double cmd_vel_timeout = 1.0; // sec
 ros::Time last_stamp_cmd_vel;
 geometry_msgs::Twist curr_cmd_vel;
 
@@ -118,7 +120,7 @@ ros::Publisher pub_target_pose;
 bool has_target_pose = false;
 
 bool autonomous = false;
-bool use_cmd_vel_joy = true;
+bool use_cmd_vel_joy = false;
 
 int chan_btn_arm = 7;
 int chan_btn_dis = 6;
@@ -159,6 +161,7 @@ void cb_vis_odom(nav_msgs::Odometry _odom);
 void cb_px4_odom(nav_msgs::Odometry _pose);
 void cb_disarm(std_msgs::Bool _disarm);
 void cb_rel_alt(std_msgs::Float64 _rel_alt);
+void cb_drop_ball(std_msgs::Bool _disarm);
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel);
 uint16_t mapToPpm(double _in, double _max, double _min);
@@ -182,11 +185,11 @@ int main(int argc, char** argv){
     ros::NodeHandle nh;
     ros::NodeHandle nh_param("~");
 
-    nh_param.param<std::string>("topic_sub_cmd_vel", topic_sub_cmd_vel, topic_sub_cmd_vel);
-    nh_param.param<std::string>("topic_pub_control", topic_pub_control, topic_pub_control);
+    nh_param.param<string>("topic_sub_cmd_vel", topic_sub_cmd_vel, topic_sub_cmd_vel);
+    nh_param.param<string>("topic_pub_control", topic_pub_control, topic_pub_control);
     nh_param.param<double>("cmd_vel_timeout", cmd_vel_timeout, cmd_vel_timeout);
-	nh_param.param<std::string>("topic_sub_joy", topic_sub_joy, topic_sub_joy);
-	nh_param.param<std::string>("topic_sub_estop_disarm", topic_sub_estop_disarm, topic_sub_estop_disarm);
+	nh_param.param<string>("topic_sub_joy", topic_sub_joy, topic_sub_joy);
+	nh_param.param<string>("topic_sub_estop_disarm", topic_sub_estop_disarm, topic_sub_estop_disarm);
 
     nh_param.param<double>("dir_y", directions[6], directions[6]);
     nh_param.param<double>("dir_x", directions[5], directions[5]);
@@ -219,6 +222,8 @@ int main(int argc, char** argv){
 
     ros::Subscriber sub_estop_disarm = nh.subscribe<std_msgs::Bool>(topic_sub_estop_disarm, 10, cb_disarm);
 
+    ros::Subscriber sub_drop_ball = nh.subscribe<std_msgs::Bool>(topic_sub_drop_ball, 10, cb_drop_ball);
+
     pub_control = nh.advertise<mavros_msgs::OverrideRCIn>(topic_pub_control, 10);
     pub_target_pose = nh.advertise<geometry_msgs::PoseStamped>(topic_pub_target_pose, 10);
     pub_curr_cmp_hdg = nh.advertise<std_msgs::Float64>(topic_pub_curr_cmp_hdg, 10);
@@ -239,6 +244,14 @@ int main(int argc, char** argv){
 
     return 0;
 }
+
+void cb_drop_ball(std_msgs::Bool _drop_ball){
+    if (_drop_ball.data && servo_closed){
+        servo_closed = false;
+        ROS_WARN("Dropping ball - Servo opened");
+    }
+}
+
 void cb_rel_alt(std_msgs::Float64 _rel_alt){
     curr_pose.position.z = _rel_alt.data;
 }
@@ -347,20 +360,19 @@ void process_cmd_vel(){
         if (alt_ctrl_signal >= 100.0) alt_ctrl_signal = 100.0;
         if (alt_ctrl_signal <= -100.0) alt_ctrl_signal = -100.0;
 
-        // ROS_INFO("Curr yaw: %.3f - Target yaw: %.3f", curr_yaw, target_yaw);
-        // if(!isnan(curr_yaw)) {
+        // Update target yaw
+        double yaw_vel = curr_cmd_vel.angular.z;
+        if (fabs(yaw_vel) > 0.05){
+            if (yaw_vel > 0.2) target_yaw = curr_yaw + 0.2;
+            if (yaw_vel < -0.2) target_yaw = curr_yaw - 0.2;
+            else target_yaw = curr_yaw + yaw_vel; 
+        }
 
         double temp_err_yaw = target_yaw - curr_yaw;
         yaw_ctrl_signal = - temp_err_yaw * 400.0;
         if (yaw_ctrl_signal >= 100.0) yaw_ctrl_signal = 100.0;
         if (yaw_ctrl_signal <= -100.0) yaw_ctrl_signal = -100.0;
 	
-	// ROS_INFO("curr yaw err: %.3f", temp_err_yaw);
-        //     // ROS_INFO("yaw control");
-        // } else {
-        //     yaw_ctrl_signal = 0.0;
-        // }
-
         last_err = curr_err;
 
         target_tf = curr_tf * rel_tf;
@@ -517,6 +529,14 @@ geometry_msgs::Pose twist_to_rel_pose(geometry_msgs::Twist _twist, double dt){
 
 void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
     if (ros::Time::now().toSec() - last_stamp_cmd_vel.toSec() < cmd_vel_timeout){
+        target_vel.linear.x = 0.0;
+        target_vel.linear.y = 0.0;
+        target_vel.linear.z = 0.0;
+        
+        target_vel.angular.x = 0.0;
+        target_vel.angular.y = 0.0;
+        target_vel.angular.z = 0.0;
+    }
         mavros_msgs::OverrideRCIn msg;
 
         msg.channels[4] = mapToPpm(directions[5] * lin_x_scaling * target_vel.linear.x, lin_max_vel, lin_min_vel);     // forward  (x)
@@ -537,8 +557,6 @@ void send_control_cmd(bool in_plane, geometry_msgs::Twist target_vel){
         msg.channels[7] = (servo_closed ? 1100 : 1900); // camera-tilt  - not used
 
         pub_control.publish(msg);
-
-    }
 }
 
 void cb_joy_signal (const sensor_msgs::Joy joy_signal){		
@@ -573,11 +591,6 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
 
         if (check_rising_edge(chan_btn_alt)){
             mode = MODE_ALT_HOLD;
-            // if (use_fixed_alt) target_alt = target_fixed_alt;
-            // else target_alt = curr_pose.position.z;
-            
-            // if (use_fixed_yaw) target_yaw = target_fixed_yaw;
-            // else target_yaw = curr_yaw;
 
             if (use_fixed_alt) {
                 target_alt = target_fixed_alt;
@@ -596,7 +609,7 @@ void cb_joy_signal (const sensor_msgs::Joy joy_signal){
             }
             
             ROS_INFO("Attemp changing mode: ALT_HOLD");   
-            // setMode("ALT_HOLD");
+
         }
 
         if (check_rising_edge(chan_btn_auto)){

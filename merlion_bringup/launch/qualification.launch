@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>    
+    <include file="$(find merlion_bringup)/launch/apm.launch"/>
+    <include file="$(find merlion_bringup)/launch/control.launch"/>
+    <include file="$(find merlion_bringup)/launch/sensors.launch"/>
+    
+    <node pkg="merlion_perception" name="mission_planner"   type="mission_planner.py"/>
+    <node pkg="merlion_perception" name="localizer"         type="localizer.py"/>
+</launch>
