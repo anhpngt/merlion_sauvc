@@ -67,13 +67,13 @@ class Localizer(object):
         rate = rospy.Rate(10)
 
         #### A Subscriber to switch: wait for 2 secs of armed state before initializing
-        # self.last_disarm_time = rospy.get_time()
-        # rospy.loginfo('Waiting for armed...')
-        # waitInitSub = rospy.Subscriber("/merlion/disarm", Bool, self.wait_init, queue_size=1)
-        # while not rospy.is_shutdown() and not self.switch_init:
-        #     rate.sleep()
-        # rospy.loginfo('Received arming, initialize!')
-        # waitInitSub.unregister()
+        self.last_disarm_time = rospy.get_time()
+        rospy.loginfo('Waiting for armed...')
+        waitInitSub = rospy.Subscriber("/merlion/disarm", Bool, self.wait_init, queue_size=1)
+        while not rospy.is_shutdown() and not self.switch_init:
+            rate.sleep()
+        rospy.loginfo('Received arming, initialize!')
+        waitInitSub.unregister()
 
         ####Subscribers####
         # sub to downward cam as main for localizer

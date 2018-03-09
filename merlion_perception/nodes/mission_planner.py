@@ -73,9 +73,9 @@ class Mission(object):
 
         #sub odom
         rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
-        # while not self.odom_received and not rospy.is_shutdown():
-        #     rospy.sleep(1)
-        #     rospy.loginfo("Waiting for odom...")
+        while not self.odom_received and not rospy.is_shutdown():
+            rospy.sleep(1)
+            rospy.loginfo("Waiting for odom...")
 
         ####Publishers####
         self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
