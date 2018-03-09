@@ -20,10 +20,6 @@ import random
 #################################
 
 class Mission(object):
-    switch_init = False # wait for armed state from estop
-    last_disarm_time = 0
-    arming_count = 0
-
     # sleeping time
     timestep = 0.1
 
@@ -67,16 +63,6 @@ class Mission(object):
         rospy.init_node(nodename, anonymous=False)
         self.bridge = CvBridge()
 
-        #### A Subscriber to switch: wait for 2 secs of armed state before initializing
-        self.last_disarm_time = rospy.get_time()
-        rospy.loginfo('Waiting for armed...')
-        waitInitSub = rospy.Subscriber("/merlion/disarm", Bool, self.wait_init, queue_size=1)
-        while not rospy.is_shutdown() and not self.switch_init:
-            rospy.sleep(0.5)
-        rospy.loginfo('Received arming, initialize!')
-        time.sleep(5)
-        waitInitSub.unregister()
-
         ####Subscribers####
 
         #sub to heatmaps from detector
@@ -100,8 +86,6 @@ class Mission(object):
         
         #sub to downward cam as main for bucket
         rospy.Subscriber("/down/image_rect_color", Image, self.down_img_callback, queue_size = 1)
-        # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
-
 
         ####Publishers####
         self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
@@ -119,16 +103,6 @@ class Mission(object):
                 self.mission_2()
             elif i == 3:
                 self.mission_3()
-
-    def wait_init(self, msg):
-        if msg.data == True: # disarmed
-            self.last_disarm_time = rospy.get_time()
-            self.arming_count = 0
-        else:
-            self.arming_count += 1
-
-        if rospy.get_time() - self.last_disarm_time > 2.0 and self.arming_count > 10: # armed consistently!
-            self.switch_init = True
 
     def mission_0(self):
         ####qualification####

@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>    
+    <node pkg="merlion_perception" name="mission_planner"   type="mission_planner.py"/>
+</launch>
