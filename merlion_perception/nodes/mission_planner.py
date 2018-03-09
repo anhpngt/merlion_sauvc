@@ -15,43 +15,42 @@ from visualization_msgs.msg import MarkerArray, Marker
 import time
 import random
 
-
 #################################
 ##############class##############
 #################################
 
 class Mission(object):
-    #sleeping time
-    timestep=0.1
+    # sleeping time
+    timestep = 0.1
 
     #cmd_vel speeds, in m/s and rad/s
-    forward_speed=1*timestep
-    side_speed=1*timestep
-    yaw_speed=10*math.pi/180*timestep
+    forward_speed = 4*timestep
+    side_speed = 2*timestep
+    yaw_speed = 10*math.pi/180*timestep
 
     #ODOM
-    x0, y0, z0=0, 0, 0
-    roll0, pitch0, yaw0=0, 0, 0
-    odom_received=False
+    x0, y0, z0 = 0, 0, 0
+    roll0, pitch0, yaw0 = 0, 0, 0
+    odom_received = False
 
     #make birdeye heatmap with size 50, 25, ppm=2, init_pos=0.7, 25 
     #3 channels for gate, blue bucket, flare
-    heatmaps=np.zeros((50, 100, 3), dtype=np.uint8)
-    init_pos=0.7, 25
-    ppm=2
+    heatmaps = np.zeros((50, 100, 3), dtype=np.uint8)
+    init_pos = 0.7, 25
+    ppm = 2
 
     #mission sequence
-    seq=[2]
+    seq = [0]
 
     #stores detections, row wise: gate, bucket, flare, col wise: x, y, confidence
-    detections=np.zeros((3, 3))
+    detections = np.zeros((3, 3))
 
     #visual servoing params
-    blue_del_x, blue_del_y, streak=0, 0, 0
-    bucket_seen=False
+    blue_del_x, blue_del_y, streak = 0, 0, 0
+    bucket_seen = False
 
     #look around bias, estimated global position of gate, bucket, and flare
-    detection_bias=[[9, -3], [25, -4], [19, -6]]
+    detection_bias = [[9, -3], [25, -4], [19, -6]]
     # detection_bias=[[0, 0], [0, 0], [0, 0]]
 
     def __init__(self, nodename, drive=None):
@@ -62,32 +61,29 @@ class Mission(object):
         #sub to heatmaps from detector
         rospy.Subscriber("/detection/heatmap", Image, self.heatmap_callback, queue_size = 1)
         
-
         #sub to downward cam as main for bucket
         rospy.Subscriber("/down/image_rect_color", Image, self.down_img_callback, queue_size = 1)
-        rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
-        
+        # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
 
         #sub odom
         rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
         while not self.odom_received and not rospy.is_shutdown():
             rospy.sleep(1)
-            rospy.loginfo("waiting for odom...")
-
+            rospy.loginfo("Waiting for odom...")
 
         ####Publishers####
-        self.cmd_vel_pub=rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-        self.front_img_pub=rospy.Publisher('/mission/front_img', Image, queue_size=1)
-        self.down_img_pub=rospy.Publisher('/mission/down_img', Image, queue_size=1)
+        self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
+        self.front_img_pub = rospy.Publisher('/mission/front_img', Image, queue_size=1)
+        self.down_img_pub = rospy.Publisher('/mission/down_img', Image, queue_size=1)
 
         for i in self.seq:
-            if i==0:
-                self.mission_0()
-            elif i==1:
+            if i == 0:
+                self.mission_0(distance=1)
+            elif i == 1:
                 self.mission_1()
-            elif i==2:
+            elif i == 2:
                 self.mission_2()
-            elif i==3:
+            elif i == 3:
                 self.mission_3()
 
     def mission_0(self, distance=10):
@@ -96,19 +92,27 @@ class Mission(object):
         #2.move 10m reverse.
         #3.while holding yaw=0 and depth
 
-        rospy.loginfo("init qualification task")
-        forward_done=False
-        
+        rospy.loginfo("Attempting qualification task...")
+        forward_done = False
+        target_x = self.x0 + distance
+        target_y = self.y0
 
         while not rospy.is_shutdown():
-            if self.x0<distance+1 and forward_done==False:
-                rospy.loginfo("0.1 move forward")
-                self.pub_cmd_vel(self.forward_speed, 0, 0)
+            err_y = self.y0 - target_y # PID y-axis only
+            if err_y > 1.0:
+                err_y = 1.0
+            
+            # vel_X
+            if forward_done == False:
+                rospy.loginfo("(0.1) Moving forward")
+                self.pub_cmd_vel(self.forward_speed, -err_y * self.side_speed, 0)
+                if self.x0 > target_x + 0.5:
+                    forward_done = True
+                    target_x -= distance # back to original x
             else:
-                rospy.loginfo("0.2 reverse")
-                forward_done=True
-                self.pub_cmd_vel(-self.forward_speed, 0, 0)
-                if self.x0<1:
+                rospy.loginfo("(0.2) Reversing")
+                self.pub_cmd_vel(-self.forward_speed, -err_y * self.side_speed, 0)
+                if self.x0 < target_x - 0.5:
                     break
 
         rospy.loginfo("qualification done")

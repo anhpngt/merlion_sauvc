@@ -12,23 +12,23 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-image_transport::Publisher image_pub;
-cv::Mat frame_src;
-cv::Mat str_el;
+static image_transport::Publisher image_pub;
+static cv::Mat frame_src;
+static cv::Mat str_el;
 
 // Params
-std::string camera_image_topic = "/front/image_rect_color";
-std::string result_image_topic = "/gate/image";
-double adT_maxValue = 255;
-double adT_C = 3;
-int adT_method = 1;
-int adT_type = 1;
-int adT_blockSize = 51;
-int select_channel = 2;
-int blur_ksize = 5;
-int morph_ksize = 3;
+static std::string camera_image_topic = "/front/image_rect_color";
+static std::string result_image_topic = "/gate/image";
+static double adT_maxValue = 255;
+static double adT_C = 3;
+static int adT_method = 1;
+static int adT_type = 1;
+static int adT_blockSize = 51;
+static int select_channel = 2;
+static int blur_ksize = 5;
+static int morph_ksize = 3;
 
-void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
+static void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
 {
   std::chrono::time_point<std::chrono::system_clock> t1 = std::chrono::system_clock::now();
   try

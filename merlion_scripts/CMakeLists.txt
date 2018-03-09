@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(merlion_scripts)
 
-find_package(catkin REQUIRED COMPONENTS roslaunch
+find_package(catkin REQUIRED COMPONENTS 
+  roslaunch
   roscpp
   roslib
+  rospy
 )
 find_package(OpenCV REQUIRED)
 roslaunch_add_file_check(launch)
@@ -32,3 +34,4 @@ add_new_node(color_hist)
 add_new_node(adaptive_threshold)
 add_new_node(background_extract)
 add_new_node(manual_background_extract)
+add_new_node(bricktiles_seg)

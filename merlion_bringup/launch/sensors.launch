@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="use_front" default="true"/>
+    <arg name="use_down" default="true"/>
+    <arg name="arduino" default="false"/>
+
+    <include if="$(arg use_front)"
+        file="$(find merlion_bringup)/launch/sensors/logi_c920.launch">
+    </include>
+
+    <include if="$(arg use_down)"
+        file="$(find merlion_bringup)/launch/sensors/logi_c310.launch">
+    </include>
+
+    <include if="$(arg arduino)"
+        file="$(find merlion_bringup)/launch/sensors/arduino.launch">
+    </include>
+
+</launch>

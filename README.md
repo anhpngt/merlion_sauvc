@@ -6,33 +6,19 @@ Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). 
 ## Goals
 
 ### TODO list
-Hardware:
-- [ ] Acoustics
-- [x] Depth sensor
-- [ ] EStop/Kill switch
-- [x] Frames
-- [ ] Servo
-
-Software:
-- [ ] Mission Manager
-- [ ] Qualification node
-- [ ] Mission 1 node
-- [ ] Mission 2 node
-- [ ] Mission 3 node
-- [x] Object detection, shape/color-based
-- [ ] Object detection, deep learning
-- [x] Vel_controller
-- [ ] SLAM
-
+- [ ] Win
 
 ## Requirements
 - ROS Kinetic (Ubuntu 16.04 LTS). 
-  - ROS Indigo (Ubuntu 14.04 LTS) supports have been dropped.
+  - ROS Indigo (Ubuntu 14.04 LTS) may work but is no longer supported.
 
 - Install package dependencies:
 ```
 sudo apt-get install ros-kinetic-usb-cam ros-kinetic-mavros ros-kinetic-joy
+sudo apt-get install ros-kinetic-rosserial-arduino ros-kinetic-rosserial
 ```
+
+- (Optional) Arduino ([IDE](https://www.arduino.cc/en/Main/Software), [rosserial_arduino](http://wiki.ros.org/rosserial_arduino/Tutorials) for low-level EStop) and Servo
 
 Additionally, install `bluerov` package from [source](https://github.com/bluerobotics/bluerov-ros-pkg#installation-from-source) (apt does not work).
 
@@ -40,7 +26,7 @@ Additionally, install `bluerov` package from [source](https://github.com/bluerob
 ### Wake-on-LAN
 Follow the instruction from [here](http://kodi.wiki/view/HOW-TO:Set_up_Wake-on-LAN_for_Ubuntu).
 
-IP address 192.168.1.119 was reserved for NUC
+IP address 192.168.1.119(eth0)/192.168.1.129(wlan) was reserved for NUC
 
 From ground PC:
 ```
@@ -59,35 +45,28 @@ sudo udevadm control --reload-rules && sudo service udev restart && sudo udevadm
 ### SSH
 From ground PC:
 ```
-ssh ugv@192.168.1.119
-```
-or
-```
-ssh ugv@ugv-nuc
+ssh usv@192.168.1.119
 ```
 
 Add these lines on ground PC into *~/.bashrc* to work with NUC ROS master
 ```
 export ROS_MASTER_URI=http://192.168.1.119:11311
-export ROS_IP=192.168.1.xxx
+export ROS_IP=192.168.1.xxx # your IP
 ```
-Remove (comment) those line if you want to work with a local ROS master
+Remove (comment) those lines if you want to work with a local ROS master
 
-### Manual Motor Control
+### Control
+TODO: Update this
 ```
-roslaunch bluerov apm.launch
+roslaunch merlion_bringup merlion_bringup.launch
 ```
 
 In ground PC, plug in the joystick and use QGroundControl or ros teleop
 ```
-roslaunch bluerov_apps teleop_f310.launch
-```
-Also note in the launch file above, change the `dev` parameter to match the usb port of the joystick
-```
-<param name="dev" value="/dev/input/js0" type="string"/>
+roslaunch merlion_bringup joy_bringup.launch
 ```
 
-### Logitech USB Webcam
+### Vision
 ```
 roslaunch merlion_bringup sensors.launch
 roslaunch merlion_bringup image_view.launch

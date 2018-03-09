@@ -40,11 +40,11 @@ class DetectBucket(object):
         self.init_markers()
 
         #sub to front cam
-        rospy.Subscriber("/logi_c920/usb_cam_node/image_raw", Image, self.front_img_callback, queue_size = 1)
+        # rospy.Subscriber("/logi_c920/usb_cam_node/image_raw", Image, self.front_img_callback, queue_size = 1)
         rospy.Subscriber("/front/image_rect_color", Image, self.front_img_callback, queue_size = 1)
 
         #sub to downward cam
-        rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
+        # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
         rospy.Subscriber("/down/image_rect_color", Image, self.down_img_callback, queue_size = 1)
 
         #sub to odom

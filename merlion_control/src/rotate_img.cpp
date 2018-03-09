@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
 
     image_transport::ImageTransport it(nh);
-    image_transport::Subscriber sub_img = it.subscribe("/logi_c310/usb_cam_node/image_raw", 10, imageCb);
+    image_transport::Subscriber sub_img = it.subscribe("/down/image_rect_color", 10, imageCb);
     image_transport::Publisher pub_img = it.advertise("/image_rotated", 1);
 
     ros::Subscriber sub_imu = nh.subscribe("/mavros/imu/data", 10, imuCb);

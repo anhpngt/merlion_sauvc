@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="merlion_control"     type="control_driver"   name="control_driver"   output="screen">
+
+        <param name="use_fixed_alt" value="true"/>
+        <param name="target_fixed_alt" value="-1.0"/>
+
+        <param name="use_fixed_yaw" value="true"/>
+        <param name="target_fixed_yaw" value="2.8"/>
+
+        <param name="dir_y" value="-1.0"/>
+        <param name="dir_x" value="1.0"/>
+        <param name="dir_z" value="-1.0"/>
+        <param name="dir_wx" value="1.0"/>
+        <param name="dir_wy" value="1.0"/>
+        <param name="dir_wz" value="-1.0"/>
+
+        <param name="kp_x" value="2.0"/>
+        <param name="ki_x" value="0.0"/>
+        <param name="kd_x" value="0.0"/>
+
+        <param name="kp_y" value="2.0"/>
+        <param name="ki_y" value="0.0"/>
+        <param name="kd_y" value="0.0"/>
+
+        <param name="kp_z" value="2.0"/>
+        <param name="ki_z" value="0.0"/>
+        <param name="kd_z" value="0.0"/>
+
+        <param name="kp_wz" value="2.0"/>
+        <param name="ki_wz" value="0.0"/>
+        <param name="kd_wz" value="0.0"/>
+    </node>
+</launch>
