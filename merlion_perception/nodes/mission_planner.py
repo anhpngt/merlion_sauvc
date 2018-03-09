@@ -66,6 +66,7 @@ class Mission(object):
         ####Subscribers####
 
         #sub odom
+<<<<<<< HEAD
         rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
         while not self.odom_received and not rospy.is_shutdown():
             rospy.sleep(1)
@@ -77,6 +78,15 @@ class Mission(object):
         #sub to downward cam as main for bucket
         rospy.Subscriber("/down/image_rect_color", Image, self.down_img_callback, queue_size = 1)
         # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
+=======
+        if len(seq)==1 and seq[0]==0:
+            print("qualifier don't care localizer")
+        else:
+            rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
+            while not self.odom_received and not rospy.is_shutdown():
+                rospy.sleep(1)
+                rospy.loginfo("Waiting for odom...")
+>>>>>>> da2ca4a7e25159f860c58d87fcac9fd9998432e2
 
         ####Publishers####
         self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
