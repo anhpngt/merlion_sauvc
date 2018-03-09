@@ -72,10 +72,13 @@ class Mission(object):
         # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
 
         #sub odom
-        rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
-        while not self.odom_received and not rospy.is_shutdown():
-            rospy.sleep(1)
-            rospy.loginfo("Waiting for odom...")
+        if len(seq)==1 and seq[0]==0:
+            print("qualifier don't care localizer")
+        else:
+            rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
+            while not self.odom_received and not rospy.is_shutdown():
+                rospy.sleep(1)
+                rospy.loginfo("Waiting for odom...")
 
         ####Publishers####
         self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
