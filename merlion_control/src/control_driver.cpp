@@ -41,6 +41,7 @@ bool is_armed = false;
 
 bool use_vis_yaw = false;
 
+double pool_depth = 2.0;
 bool use_vis_z = false;
 bool only_depth_control = true;
 
@@ -211,6 +212,9 @@ int main(int argc, char** argv){
 
     nh_param.param<bool>    ("use_vis_yaw",   use_vis_yaw,      use_vis_yaw);
 
+    nh_param.param<bool>    ("use_vis_z",   use_vis_z,      use_vis_z);
+    nh_param.param<double>  ("pool_depth",  pool_depth,     pool_depth);
+
     ros::Subscriber sub_cmd_vel = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel, 10, cb_cmd_vel);
     ros::Subscriber sub_cmd_vel_joy = nh.subscribe<geometry_msgs::Twist>(topic_sub_cmd_vel_joy, 10, cb_cmd_vel_joy);
 	ros::Subscriber sub_joy = nh.subscribe<sensor_msgs::Joy>(topic_sub_joy, 10, cb_joy_signal);
@@ -265,7 +269,7 @@ void cb_disarm(std_msgs::Bool _disarm){
 void cb_vis_odom(nav_msgs::Odometry _odom){
     curr_pose.position.x = _odom.pose.pose.position.x;
     curr_pose.position.y = _odom.pose.pose.position.y;
-    if (use_vis_z) curr_pose.position.z = _odom.pose.pose.position.z;
+    if (use_vis_z) curr_pose.position.z = _odom.pose.pose.position.z - pool_depth;
 
     curr_pose.orientation = _odom.pose.pose.orientation;
 
