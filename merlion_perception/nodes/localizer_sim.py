@@ -34,7 +34,7 @@ class Localizer(object):
 
         ####Subscribers####
         #sub to downward cam as main for localizer
-        rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size = 1)
+        rospy.Subscriber("/merlion/control/cmd_vel", Twist, self.cmd_vel_callback, queue_size = 1)
 
 
         ####Publishers####

@@ -40,7 +40,7 @@ class Detector(object):
     erode=2
 
     #simulated global positions of detection items
-    detections = [[5, -1], [23, -6], [15, 5]]
+    detections =[[5, 1], [23, 6], [15, -5]]
 
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
@@ -53,7 +53,6 @@ class Detector(object):
         while not self.odom_received and not rospy.is_shutdown():
             rospy.sleep(1)
             print("waiting for odom...")
-
 
         ####Publishers####
         #pub images for debugging
@@ -99,7 +98,7 @@ class Detector(object):
             theta=math.atan2(detection[1]-self.y0, detection[0]-self.x0)-self.yaw0
             theta=math.atan2(math.sin(theta), math.cos(theta))
             dist=math.sqrt((self.x0-detection[0])**2+(self.y0-detection[1])**2)
-            std_dev=dist/4
+            std_dev=float(dist)/8
 
             if dist<r and abs(theta)<self.fov_w/2 and dist>blindspot_r:
                 noise=(random.random()-0.5)*std_dev

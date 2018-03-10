@@ -24,9 +24,11 @@ class Mission(object):
     timestep = 0.1
 
     #cmd_vel speeds, in m/s and rad/s
-    forward_speed = 0.8
-    side_speed = 0.8
+    forward_speed = 0.8*0.1
+    side_speed = 0.8*0.1
     yaw_speed = 4*math.pi/180
+
+    thres=0.3
 
     #ODOM
     x0, y0, z0 = 0, 0, 0
@@ -51,11 +53,10 @@ class Mission(object):
 
     #look around bias, estimated global position of gate, bucket, and flare
     #detection_bias=[[0, 0], [0, 0], [0, 0]]
-    detection_bias = [[5, -1], [23, -6], [15, 5]]
+    detection_bias = [[5, 1], [23, 6], [15, -5]]
 
     #release ball on mission 2
     drop_ball=False
-
     streak=0
 
     #0=red, blue=1
@@ -68,7 +69,6 @@ class Mission(object):
         ####Subscribers####
 
         #sub to heatmaps from detector
-       
         if len(self.seq)==1 and self.seq[0]==0:
             print("qualifier don't care localizer")
         else:
@@ -84,7 +84,7 @@ class Mission(object):
         rospy.Subscriber("/down/image_rect_color", Image, self.down_img_callback, queue_size = 1)
 
         ####Publishers####
-        self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
         self.front_img_pub = rospy.Publisher('/mission/front_img', Image, queue_size=1)
         self.down_img_pub = rospy.Publisher('/mission/down_img', Image, queue_size=1)
         self.drop_ball_pub= rospy.Publisher('/merlion/drop_ball', Bool, queue_size=1)
@@ -124,7 +124,7 @@ class Mission(object):
         self.look_around(1, 15)
 
         #distance threshold in sideway movement
-        thres=0.2
+
         #move this much pass the gate
         offset=2
         #step 4 enclosing step 2 and step 3
@@ -133,7 +133,7 @@ class Mission(object):
             print(x, y)
             #step 2
             error_y=y-self.y0
-            if abs(error_y)>thres:
+            if abs(error_y)>self.thres:
                 rospy.loginfo("1.2 move sideway")
                 sign=np.sign(error_y)
                 self.pub_cmd_vel(0, sign*self.side_speed,0)
@@ -161,7 +161,6 @@ class Mission(object):
         ###########################
         rospy.loginfo("init mission 2")
         
-        thres=0.2
         offset=-2
         #step 1
 
@@ -173,7 +172,7 @@ class Mission(object):
 
             #step 2
             error_y=y-self.y0
-            if abs(error_y)>thres:
+            if abs(error_y)>self.thres:
                 rospy.loginfo("2.2 moving sideway")
                 sign=np.sign(error_y)
                 self.pub_cmd_vel(0, sign*self.side_speed,0)
@@ -253,7 +252,7 @@ class Mission(object):
         #4. redo 2 and 3 until passes flare
         ######################
         rospy.loginfo("init mission 3")
-        thres=0.3
+
         #step 1
         self.look_around(3, 15)
         
@@ -263,7 +262,7 @@ class Mission(object):
 
             #step 2
             error_y=y-self.y0
-            if abs(error_y)>thres:
+            if abs(error_y)>self.thres:
                 rospy.loginfo("3.2 move sideway")
                 sign=np.sign(error_y)
                 self.pub_cmd_vel(0, sign*self.side_speed,0)
@@ -271,7 +270,7 @@ class Mission(object):
                 #step 3
                 rospy.loginfo("3.3 move forward")
                 self.pub_cmd_vel(self.forward_speed, 0, 0)
-                if math.sqrt((x-self.x0)**2+(y-self.y0)**2)<0.5:
+                if math.sqrt((x-self.x0)**2+(y-self.y0)**2)<self.thres:
                     break
         #step 
         #set few timesteps to foward
@@ -289,7 +288,6 @@ class Mission(object):
 
         bias=self.detection_bias[mission_no-1]
         rospy.loginfo(bias)
-        thres=0.3
 
         if bias[0]!=0 or bias[1]!=0:
             r=3
@@ -297,13 +295,14 @@ class Mission(object):
             x=bias[0]
             y=bias[1]
 
-            x, y, conf=self.detections[i]
+            _, _, conf=self.detections[i]
             while conf < conf_thres and not rospy.is_shutdown():            
                 
                 error_y=y-self.y0
-                if abs(error_y)>thres:
-                    rospy.loginfo("1.2 move sideway")
+                if abs(error_y)>self.thres:
+                    rospy.loginfo("lookaround sideway")
                     sign=np.sign(error_y)
+                    print(error_y)
                     self.pub_cmd_vel(0, sign*self.side_speed,0)
                 else:
                     #step 3
@@ -313,9 +312,7 @@ class Mission(object):
                     if math.sqrt((x-self.x0)**2+(y-self.y0)**2)<r:
                         break
                 
-                x, y, conf=self.detections[i]
-
-
+                _, _, conf=self.detections[i]
 
         rospy.loginfo('Finished searching!')        
         return
