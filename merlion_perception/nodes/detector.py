@@ -57,7 +57,7 @@ class Detector(object):
 
         #sub odom
         rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
-       while not self.odom_received and not rospy.is_shutdown():
+        while not self.odom_received and not rospy.is_shutdown():
            rospy.sleep(1)
            print("waiting for odom...")
 
@@ -302,9 +302,9 @@ class Detector(object):
                     if ind_x>self.heatmaps.shape[0]-1 or ind_y>self.heatmaps.shape[1]-1:
                         return
 
-                    if i==1:
-                        #blue bucket heatmap
-                        self.heatmaps[ind_x, ind_y, 1]+=1
+                    #if i==1:
+                    #any bucket heatmap
+                    self.heatmaps[ind_x, ind_y, 1]+=1
                 i+=1
 
         # frame_binary = cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR);

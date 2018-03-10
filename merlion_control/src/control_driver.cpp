@@ -35,7 +35,7 @@ string topic_sub_estop_disarm = "/merlion/disarm";
 string topic_sub_drop_ball = "/merlion/drop_ball";
 string topic_pub_curr_cmp_hdg = "/mavros/global_position/compass_hdg_rad";
 
-
+double alt_ctrl_gain = 2000.0;
 
 bool is_armed = false;
 
@@ -356,7 +356,7 @@ void process_cmd_vel(){
     tf::poseMsgToTF(rel_pose, rel_tf);
     if (mode == MODE_ALT_HOLD){
         double temp_err = target_alt - curr_pose.position.z;
-        alt_ctrl_signal = - temp_err * 800.0;
+        alt_ctrl_signal = - temp_err * alt_ctrl_gain;
         if (alt_ctrl_signal >= 100.0) alt_ctrl_signal = 100.0;
         if (alt_ctrl_signal <= -100.0) alt_ctrl_signal = -100.0;
 

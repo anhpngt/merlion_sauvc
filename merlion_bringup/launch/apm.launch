@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>    
-    <arg name="local_ip" default="127.0.0.1"/>
-    <arg name="remote_ip" default="127.0.0.1"/>
+    <arg name="local_ip" default="localhost"/>
+    <arg name="remote_ip" default="localhost"/>
 
     <arg name="fcu_url" default="/dev/ttyUSB0:115200"/>
     <arg name="gcs_url" default="udp://$(arg local_ip):14555@$(arg remote_ip):14550"/>

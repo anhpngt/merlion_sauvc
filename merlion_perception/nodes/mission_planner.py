@@ -25,8 +25,8 @@ class Mission(object):
 
     #cmd_vel speeds, in m/s and rad/s
     forward_speed = 0.8
-    side_speed = 0.5
-    yaw_speed = 6*math.pi/180
+    side_speed = 0.8
+    yaw_speed = 4*math.pi/180
 
     #ODOM
     x0, y0, z0 = 0, 0, 0
@@ -40,8 +40,8 @@ class Mission(object):
     ppm = 2
 
     #mission sequence
-    seq = [0]
-
+    seq = [1, 2, 3]
+    
     #stores detections, row wise: gate, bucket, flare, col wise: x, y, confidence
     detections = np.zeros((3, 3))
 
@@ -50,14 +50,19 @@ class Mission(object):
     bucket_seen = False
 
     #look around bias, estimated global position of gate, bucket, and flare
-    detection_bias=[[0, 0], [0, 0], [0, 0]]
-    # detection_bias = [[9, -3], [25, -4], [19, -6]]
+    #detection_bias=[[0, 0], [0, 0], [0, 0]]
+    detection_bias = [[5, -1], [23, -6], [15, 5]]
 
     #release ball on mission 2
     drop_ball=False
 
     #angular threshold for adjusting yaw
     ang_thres=5*math.pi/180
+
+    streak=0
+
+    #0=red, blue=1
+    bucket_color=1
 
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
@@ -66,12 +71,7 @@ class Mission(object):
         ####Subscribers####
 
         #sub to heatmaps from detector
-        rospy.Subscriber("/detection/heatmap", Image, self.heatmap_callback, queue_size = 1)
-        
-        #sub to downward cam as main for bucket
-        rospy.Subscriber("/down/image_rect_color", Image, self.down_img_callback, queue_size = 1)
-        # rospy.Subscriber("/logi_c310/usb_cam_node/image_raw", Image, self.down_img_callback, queue_size = 1)
-
+       
         if len(self.seq)==1 and self.seq[0]==0:
             print("qualifier don't care localizer")
         else:
@@ -79,7 +79,6 @@ class Mission(object):
             while not self.odom_received and not rospy.is_shutdown():
                 rospy.sleep(1)
                 rospy.loginfo("Waiting for odom...")
-
 
         #sub to heatmaps from detector
         rospy.Subscriber("/detection/heatmap", Image, self.heatmap_callback, queue_size = 1)
@@ -91,8 +90,7 @@ class Mission(object):
         self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
         self.front_img_pub = rospy.Publisher('/mission/front_img', Image, queue_size=1)
         self.down_img_pub = rospy.Publisher('/mission/down_img', Image, queue_size=1)
-        self.drop_ball_pub= rospy.Publisher('/drop_ball', Bool, queue_size=1)
-
+        self.drop_ball_pub= rospy.Publisher('/merlion/drop_ball', Bool, queue_size=1)
 
         for i in self.seq:
             if i == 0:
@@ -113,7 +111,6 @@ class Mission(object):
         rospy.loginfo("Attempting qualification task...")
         while not rospy.is_shutdown():
             self.pub_cmd_vel(self.forward_speed, 0, 0)
-
 
         rospy.loginfo("qualification done")
 
@@ -196,7 +193,7 @@ class Mission(object):
         #step 5
 
         #set few timesteps to foward amount of 2 m ##TODO tune ts
-        ts=3
+        ts=2
         for i in range(int(ts/self.timestep)):
             rospy.loginfo("blind motion")
             self.pub_cmd_vel(self.forward_speed, 0, 0)
@@ -216,9 +213,9 @@ class Mission(object):
                 vs_x=self.blue_del_y*k
                 vs_y=self.blue_del_x*k
                 self.pub_cmd_vel(vs_x, vs_y, 0)
-                print(vs_x, vs_y, streak)
+                print(vs_x, vs_y, self.streak)
 
-                if abs(vs_x)<0.2 and abs(vs_y)<0.2 and self.streak>5:
+                if self.streak>4:
                     break
             else:
                 rospy.loginfo("2.6 visual servo random search left&right")
@@ -238,8 +235,7 @@ class Mission(object):
 
         #step 7
         rospy.loginfo("2.7 drop ball")
-        self.release_ball()
-        rospy.sleep(3)
+ 
 
         #step 8
         #set few timesteps to reverse
@@ -262,7 +258,7 @@ class Mission(object):
         rospy.loginfo("init mission 3")
 
         #step 1
-        self.look_around(3, 'zigzag', 15)
+        self.look_around(3, 'yawing', 15)
         
         #step 4 enclosing 2 and 3
         while not rospy.is_shutdown():            
@@ -299,6 +295,7 @@ class Mission(object):
 
     def look_around(self, mission_no, mode, conf_thres=10):
         txt=str(mission_no)+".1 lookaround"
+        i=mission_no-1
         rospy.loginfo(txt)
 
         bias=self.detection_bias[mission_no-1]
@@ -334,7 +331,7 @@ class Mission(object):
             current_state = states[0]
             base_pos_x = self.x0
             base_pos_y = self.y0
-            yaw_limit = 45.0  * math.pi/ 180.0
+            yaw_limit = 30.0  * math.pi/ 180.0
             trl_limit = 1.5 # forward 2m each time
 
 
@@ -524,17 +521,18 @@ class Mission(object):
                     cv2.rectangle(img, (rect[0],rect[1]), (rect[2]+rect[0],rect[3]+rect[1]), color, 2)
                     del_x=(rect[0]+rect[2]/2)-w/2
                     del_y=(rect[1]+rect[3]/2)-h/2
-                    if i==0:
-                        print("red bucket")
-                    elif i==1:
-
-                        print("blue bucket")
+                    if i!=self.bucket_color:
+                        print("unwanted bucket")
+                    elif i==self.bucket_color:
+                        print("wanted bucket")
                         self.blue_del_x=del_x
                         self.blue_del_y=del_y
 
                         #if sub inside bucket
                         if rect[0]<w/2 and rect[2]+rect[0]>w/2 and rect[1]<h/2 and rect[1]+rect[3]>h/2:
                             self.streak+=1
+			    if self.streak>4:
+				self.release_ball()
                         else:
                             self.streak=0
                     print(del_x, del_y)
@@ -550,7 +548,7 @@ class Mission(object):
     def release_ball(self):
         msg=Bool()
 
-        for i in range(10/self.timestep):
+        for i in range(int(10/self.timestep)):
             msg.data=True
             self.drop_ball_pub.publish(msg)
             rospy.sleep(self.timestep)
