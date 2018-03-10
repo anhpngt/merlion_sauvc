@@ -22,7 +22,7 @@ import random
 
 class Detector(object):
     #odom
-    x0, y0, z0=0, 0, 0
+    x0, y0, z0=0, 0, 1
     roll0, pitch0, yaw0=0, 0, 0
     odom_received=False
 
@@ -58,8 +58,8 @@ class Detector(object):
         #sub odom
         rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
         while not self.odom_received and not rospy.is_shutdown():
-            rospy.sleep(1)
-            print("waiting for odom...")
+           rospy.sleep(1)
+           print("waiting for odom...")
 
 
         ####Publishers####
@@ -302,9 +302,9 @@ class Detector(object):
                     if ind_x>self.heatmaps.shape[0]-1 or ind_y>self.heatmaps.shape[1]-1:
                         return
 
-                    if i==1:
-                        #blue bucket heatmap
-                        self.heatmaps[ind_x, ind_y, 1]+=1
+                    #if i==1:
+                    #any bucket heatmap
+                    self.heatmaps[ind_x, ind_y, 1]+=1
                 i+=1
 
         # frame_binary = cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR);
@@ -328,6 +328,8 @@ class Detector(object):
         frame_binary = cv2.morphologyEx(frame_binary, cv2.MORPH_CLOSE, str_el)
         frame_binary = cv2.morphologyEx(frame_binary, cv2.MORPH_OPEN, str_el)
 
+        # cv2.imshow('Image', frame_binary)
+        # cv2.waitKey(3)
         _, contours, _ = cv2.findContours(frame_binary.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # Process each contours
@@ -339,14 +341,21 @@ class Detector(object):
             if contour_area < 300:
                 continue
 
+
             hull = cv2.convexHull(contours[i], clockwise=0, returnPoints=1)
             rect = cv2.boundingRect(contours[i])
-            minrect = cv2.boxPoints(cv2.minAreaRect(contours[i]))
+            rotatedrect = cv2.minAreaRect(contours[i])
+            minrect = cv2.boxPoints(rotatedrect)
 
             mr_area = cv2.contourArea(minrect)
             hull_area = cv2.contourArea(hull)
 
-            if float(contour_area) / mr_area > 0.4 and float(hull_area) / mr_area > 0.7 and rect[3] * 4 > len(frame_src):
+            # Condition:
+            #   area check: area of contour must be close to the min_area_rect bounded
+            #   area check: similar, but between hull_area and min_area_rect bounded
+            #   height check: object's height must be considerable compare to image height
+            #   aspect ratio check: height >> width
+            if float(contour_area) / mr_area > 0.4 and float(hull_area) / mr_area > 0.7 and rect[3] * 4 > len(frame_src) and float(rect[3]) / rect[2] > 3:
                 # If found a bigger detection, register
                 if contour_area > max_area:
                     # print('Area: {}, mr_area: {}, hull_area: {}, height: {}'.format(contour_area, mr_area, hull_area, rect[3]))
@@ -364,15 +373,14 @@ class Detector(object):
             # cv2.drawContours(self.detection_img, contours, best_detection, color, 2)
             cv2.rectangle(self.detection_img, (rect[0],rect[1]), (rect[2]+rect[0],rect[3]+rect[1]), color, 2)
         # frame_binary = cv2.cvtColor(frame_binary, cv2.COLOR_GRAY2BGR);
-        # cv2.imshow('Image', frame_binary)
-        # cv2.waitKey(3)
+        print(float(rect[3])/rect[2])
+        
         l=math.sqrt(rect[2]**2+rect[3]**2)
         depth=self.predict_depth_flare(l)
         x, y, z=self.compute_xy(rect[0]+rect[2]/2, rect[1]+rect[3]/2, depth, frame_src)
 
         text="x, y: "+str(round(x, 2)) +"m "+str(round(y, 2))+"m"
         cv2.putText(self.detection_img, text, (int(rect[0])+10, int(rect[1])-20), font, 0.5, color, 1, cv2.LINE_AA)
-
 
         #update heatmap
         ind_x=int(self.heatmaps.shape[0]-(self.init_pos[0]+x)*self.ppm)
@@ -506,9 +514,6 @@ class Detector(object):
         self.roll0, self.pitch0, self.yaw0 = euler_from_quaternion((msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w))
         self.odom_received = True
         
-
-
-
 
 ##########################
 ##########main############
