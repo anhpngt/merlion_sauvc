@@ -39,11 +39,8 @@ class Detector(object):
     #trickiest param for gate, cloudy water use 1, if clear use 2
     erode=2
 
-
     #simulated global positions of detection items
-    detections=[[8, -5], [23, -2], [20, -5]]
-
-
+    detections = [[5, -1], [23, -6], [15, 5]]
 
     def __init__(self, nodename, drive=None):
         rospy.init_node(nodename, anonymous=False)
@@ -72,9 +69,6 @@ class Detector(object):
 
             #clean up noise of heatmaps
             # self.heatmaps[self.heatmaps<2]=0
-
-
-
             self.pub_sim_heatmap()
 
             #pub birdeye of combined heatmap, only for visualization

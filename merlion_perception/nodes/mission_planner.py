@@ -40,7 +40,7 @@ class Mission(object):
     ppm = 2
 
     #mission sequence
-    seq = [1, 2, 3]
+    seq = [1, 3, 2]
     
     #stores detections, row wise: gate, bucket, flare, col wise: x, y, confidence
     detections = np.zeros((3, 3))
@@ -55,9 +55,6 @@ class Mission(object):
 
     #release ball on mission 2
     drop_ball=False
-
-    #angular threshold for adjusting yaw
-    ang_thres=5*math.pi/180
 
     streak=0
 
@@ -87,7 +84,7 @@ class Mission(object):
         rospy.Subscriber("/down/image_rect_color", Image, self.down_img_callback, queue_size = 1)
 
         ####Publishers####
-        self.cmd_vel_pub = rospy.Publisher('/merlion/control/cmd_vel', Twist, queue_size=1)
+        self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.front_img_pub = rospy.Publisher('/mission/front_img', Image, queue_size=1)
         self.down_img_pub = rospy.Publisher('/mission/down_img', Image, queue_size=1)
         self.drop_ball_pub= rospy.Publisher('/merlion/drop_ball', Bool, queue_size=1)
@@ -124,7 +121,7 @@ class Mission(object):
         rospy.loginfo("init mission 1")
 
         #step 1 
-        self.look_around(1, 'yawing', 15)
+        self.look_around(1, 15)
 
         #distance threshold in sideway movement
         thres=0.2
@@ -168,7 +165,7 @@ class Mission(object):
         offset=-2
         #step 1
 
-        self.look_around(2, 'yawing', 10)
+        self.look_around(2, 10)
         
         #step 4 enclosing 2 and 3
         while not rospy.is_shutdown():
@@ -193,7 +190,7 @@ class Mission(object):
         #step 5
 
         #set few timesteps to foward amount of 2 m ##TODO tune ts
-        ts=2
+        ts=3
         for i in range(int(ts/self.timestep)):
             rospy.loginfo("blind motion")
             self.pub_cmd_vel(self.forward_speed, 0, 0)
@@ -239,7 +236,7 @@ class Mission(object):
 
         #step 8
         #set few timesteps to reverse
-        ts=10
+        ts=5
         for i in range(int(ts/self.timestep)):
             rospy.loginfo("blind motion")
             self.pub_cmd_vel(-self.forward_speed, 0, 0)
@@ -251,33 +248,25 @@ class Mission(object):
     def mission_3(self):
         ####hit da flare!!!####
         #1. look around until confident
-        #2. yaw to facing flare directly
+        #2. move sideway until facing flare
         #3. move forward 2m
         #4. redo 2 and 3 until passes flare
         ######################
         rospy.loginfo("init mission 3")
-
+        thres=0.3
         #step 1
-        self.look_around(3, 'yawing', 15)
+        self.look_around(3, 15)
         
         #step 4 enclosing 2 and 3
         while not rospy.is_shutdown():            
             x, y, conf=self.detections[2]
 
             #step 2
-            yaw_des=math.atan2(y-self.y0, x-self.x0)
-            error_yaw=yaw_des-self.yaw0
-            error_yaw=math.atan2(math.sin(error_yaw), math.cos(error_yaw))
-
-
-            rospy.loginfo(error_yaw*180/math.pi)
-            if abs(error_yaw)>self.ang_thres:# and error_dis>dis_thres:
-                rospy.loginfo("3.2 yawing facing flare")
-                sign=np.sign(error_yaw)
-                
-
-                self.pub_cmd_vel(0, 0, sign*self.yaw_speed)
-
+            error_y=y-self.y0
+            if abs(error_y)>thres:
+                rospy.loginfo("3.2 move sideway")
+                sign=np.sign(error_y)
+                self.pub_cmd_vel(0, sign*self.side_speed,0)
             else:
                 #step 3
                 rospy.loginfo("3.3 move forward")
@@ -293,31 +282,29 @@ class Mission(object):
         rospy.loginfo("mission 3 success")
 
 
-    def look_around(self, mission_no, mode, conf_thres=10):
+    def look_around(self, mission_no, conf_thres=10):
         txt=str(mission_no)+".1 lookaround"
         i=mission_no-1
         rospy.loginfo(txt)
 
         bias=self.detection_bias[mission_no-1]
         rospy.loginfo(bias)
-
+        thres=0.3
 
         if bias[0]!=0 or bias[1]!=0:
-            r=10
+            r=3
             #go to proximity of bias
-            yaw_des=math.atan2(bias[1]-self.y0, bias[0]-self.x0)
             x=bias[0]
             y=bias[1]
 
-            while not rospy.is_shutdown():            
-
-                error_yaw=yaw_des-self.yaw0
-                error_yaw=math.atan2(math.sin(error_yaw), math.cos(error_yaw))
-
-                if abs(error_yaw)>self.ang_thres:# and error_dis>dis_thres:
-                    # rospy.loginfo("yawing towards bias")
-                    sign=np.sign(error_yaw)
-                    self.pub_cmd_vel(0, 0, sign*self.yaw_speed)
+            x, y, conf=self.detections[i]
+            while conf < conf_thres and not rospy.is_shutdown():            
+                
+                error_y=y-self.y0
+                if abs(error_y)>thres:
+                    rospy.loginfo("1.2 move sideway")
+                    sign=np.sign(error_y)
+                    self.pub_cmd_vel(0, sign*self.side_speed,0)
                 else:
                     #step 3
                     # rospy.loginfo("forward towards bias")
@@ -325,141 +312,11 @@ class Mission(object):
 
                     if math.sqrt((x-self.x0)**2+(y-self.y0)**2)<r:
                         break
-
-        if mode == 'yawing':
-            states = ['ccw_yaw', 'cw_yaw', 'return_yaw', 'forward']
-            current_state = states[0]
-            base_pos_x = self.x0
-            base_pos_y = self.y0
-            yaw_limit = 30.0  * math.pi/ 180.0
-            trl_limit = 1.5 # forward 2m each time
-
-
-            if bias[0]==0 and bias[1]==0:
-                #no bias
-                original_yaw = self.yaw0
-            else:
-                original_yaw= math.atan2(bias[1]-self.y0, bias[0]-self.x0)
-
-            x, y, conf=self.detections[i]
-            # Start looking
-            while conf < conf_thres and not rospy.is_shutdown(): 
-                if current_state == states[0]:
-                    self.pub_cmd_vel(0, 0, self.yaw_speed)
-                    if self.angle_diff(self.yaw0, original_yaw) >= yaw_limit: # check to switch state
-                        current_state = states[1]
-                        rospy.loginfo('Switch from {} to {}'.format(states[0], states[1]))
                 
-                elif current_state == states[1]:
-                    self.pub_cmd_vel(0, 0, -self.yaw_speed)
-                    if self.angle_diff(self.yaw0, original_yaw) <= -yaw_limit:
-                        current_state = states[2]
-                        rospy.loginfo('Switch from {} to {}'.format(states[1], states[2]))
-
-                elif current_state == states[2]:
-                    self.pub_cmd_vel(0, 0, self.yaw_speed)
-                    if abs(self.angle_diff(self.yaw0, original_yaw)) < self.ang_thres: # threshold to go back to original yaw, maybe need something more accurate for this
-                        current_state = states[3]
-                        rospy.loginfo('Switch from {} to {}'.format(states[2], states[3]))
-
-                elif current_state == states[3]:
-                    self.pub_cmd_vel(self.forward_speed, 0, 0)
-                    diff_x = self.x0 - base_pos_x
-                    diff_y = self.y0 - base_pos_y
-                    if diff_x * diff_x + diff_y * diff_y > trl_limit * trl_limit:
-                        current_state = states[0]
-                        base_pos_x = self.x0
-                        base_pos_y = self.y0
-                        rospy.loginfo('Switch from {} to {}'.format(states[3], states[0]))
-
                 x, y, conf=self.detections[i]
 
-                    
-                if math.sqrt((x-self.x0)**2+(y-self.y0)**2)<2:
-                    break
-
-            #face forwward
-            while not rospy.is_shutdown():
-                error_yaw=self.angle_diff(0, self.yaw0)
-                if abs(error_yaw) < self.ang_thres: # threshold to go back to original yaw, maybe need something more accurate for this
-                    break
-                else:
-                    sign=np.sign(error_yaw)
-                    self.pub_cmd_vel(0, 0, sign*self.yaw_speed)
-
-        elif mode == 'zigzag':
 
 
-            states = ['left', 'forward_l', 'right', 'forward_r']
-            current_state = states[0]
-            forward_limit = 1.5 
-            sideway_limit = 4.0 # move 4m left/right each time
-            original_yaw = self.yaw0
-
-            if bias[0]==0 and bias[1]==1:
-                base_pos_x = self.x0 + sideway_limit / 2.0 * math.sin(original_yaw)
-                base_pos_y = self.y0 - sideway_limit / 2.0 * math.cos(original_yaw)
-            else:
-                del_x=bias[0]-self.x0
-                del_y=bias[1]-self.y0
-                diff_y=del_y*math.cos(self.yaw0)-del_x*math.sin(self.yaw0)
-                base_pos_x = self.x0 + sideway_limit / 2.0 * math.sin(original_yaw)
-                base_pos_y = self.y0 + diff_y - sideway_limit / 2.0 * math.cos(original_yaw)
-            x, y, conf=self.detections[i]
-
-            # Start looking
-            while conf < conf_thres and not rospy.is_shutdown(): 
-
-                if current_state == states[0]:
-                    self.pub_cmd_vel(0, self.side_speed, 0)
-                    diff_x = self.x0 - base_pos_x
-                    diff_y = self.y0 - base_pos_y
-                    if math.sqrt(diff_x**2 + diff_y**2) > sideway_limit:
-                        current_state = states[1]
-                        base_pos_x = self.x0
-                        base_pos_y = self.y0
-                        rospy.loginfo('0. Switch from {} to {}'.format(states[0], states[1]))
-                
-                elif current_state == states[1]:
-
-                    self.pub_cmd_vel(self.forward_speed, 0, 0)
-                    diff_x = self.x0 - base_pos_x
-                    diff_y = self.y0 - base_pos_y
-                    if math.sqrt(diff_x**2 + diff_y**2) > forward_limit:
-                        current_state = states[2]
-                        base_pos_x = self.x0
-                        base_pos_y = self.y0
-                        rospy.loginfo('1. Switch from {} to {}'.format(states[1], states[2]))
-
-                elif current_state == states[2]:
-                    self.pub_cmd_vel(0, -self.side_speed, 0)
-                    diff_x = self.x0 - base_pos_x
-                    diff_y = self.y0 - base_pos_y
-                    if math.sqrt(diff_x**2 + diff_y**2)> sideway_limit:
-                        current_state = states[3]
-                        base_pos_x = self.x0
-                        base_pos_y = self.y0
-                        rospy.loginfo('2. Switch from {} to {}'.format(states[2], states[3]))
-                
-                elif current_state == states[3]:
-                    self.pub_cmd_vel(self.forward_speed, 0, 0)
-                    diff_x = self.x0 - base_pos_x
-                    diff_y = self.y0 - base_pos_y
-                    if math.sqrt(diff_x**2 + diff_y**2) > forward_limit:
-
-                        current_state = states[0]
-                        base_pos_x = self.x0
-                        base_pos_y = self.y0
-                        rospy.loginfo('3. Switch from {} to {}'.format(states[3], states[0]))
-
-                x, y, conf=self.detections[i]
-                if math.sqrt((x-self.x0)**2+(y-self.y0)**2)<2:
-                    break
-
-        else:
-            rospy.loginfo('Invalid look_around() mode!')
-            return
-        
         rospy.loginfo('Finished searching!')        
         return
 
