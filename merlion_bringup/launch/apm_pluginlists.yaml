@@ -4,6 +4,17 @@ plugin_blacklist:
 - actuator_control
 - ftp
 - safety_area
+- obstacle_distance
+- setpoint_accel
+- setpoint_position
+- setpoint_raw
+- setpoint_velocity
+- waypoint
+- hil
+- home_position
+- adsb
+- cam_imu_sync
+- fake_gps
 - setpoint_attitude
 - sys_time
 # extras

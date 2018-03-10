@@ -80,13 +80,13 @@ static void imageCb(const sensor_msgs::ImageConstPtr& img_msg)
     cv::RotatedRect mr = cv::minAreaRect(contours[i]);
 
     double area = cv::contourArea(contours[i]);
-    double mr_area = (mr.size).height*(mr.size).width;
+    double mr_area = (mr.size).height * (mr.size).width;
     double hull_area = cv::contourArea(hull);
 
 
-    if(std::fabs(area / mr_area) > 0.7
-       && std::fabs(area / hull_area) > 0.7
-       && (5 * rect.height > frame_src.rows))
+    if(std::fabs(area / mr_area) > 0.2
+       && std::fabs(area / hull_area) > 0.2
+       && (3 * rect.height > frame_src.rows))
     {
       if(area > max_area)
       {
