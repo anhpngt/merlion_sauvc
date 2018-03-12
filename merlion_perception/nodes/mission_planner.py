@@ -24,11 +24,11 @@ class Mission(object):
     timestep = 0.1
 
     #cmd_vel speeds, in m/s and rad/s
-    forward_speed = 0.8*0.1
-    side_speed = 0.8*0.1
-    yaw_speed = 4*math.pi/180
+    forward_speed = 0.8
+    side_speed = 0.2
+    yaw_speed = 0*math.pi/180
 
-    thres=0.3
+    thres=0.5
 
     #ODOM
     x0, y0, z0 = 0, 0, 0
@@ -53,7 +53,7 @@ class Mission(object):
 
     #look around bias, estimated global position of gate, bucket, and flare
     #detection_bias=[[0, 0], [0, 0], [0, 0]]
-    detection_bias = [[5, 1], [23, 6], [15, -5]]
+    detection_bias = [[6, -1], [23, 2], [12, -6]]
 
     #release ball on mission 2
     drop_ball=False
@@ -69,13 +69,13 @@ class Mission(object):
         ####Subscribers####
 
         #sub to heatmaps from detector
-        if len(self.seq)==1 and self.seq[0]==0:
-            print("qualifier don't care localizer")
-        else:
-            rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
-            while not self.odom_received and not rospy.is_shutdown():
-                rospy.sleep(1)
-                rospy.loginfo("Waiting for odom...")
+        #if len(self.seq)==1 and self.seq[0]==0:
+        #    print("qualifier don't care localizer")
+        #else:
+        rospy.Subscriber('/visual_odom', Odometry, self.odom_callback, queue_size=1)
+        while not self.odom_received and not rospy.is_shutdown():
+           rospy.sleep(1)
+           rospy.loginfo("Waiting for odom...")
 
         #sub to heatmaps from detector
         rospy.Subscriber("/detection/heatmap", Image, self.heatmap_callback, queue_size = 1)

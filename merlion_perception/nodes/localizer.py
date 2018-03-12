@@ -381,7 +381,7 @@ class Localizer(object):
         self.last_yaw=yaw
 
         #offset with cam to baselink
-        h+=0.3
+        
 
         #if it's the first time, memorize its initial readings
         br = tf.TransformBroadcaster()
