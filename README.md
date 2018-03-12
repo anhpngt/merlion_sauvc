@@ -1,12 +1,12 @@
 # merlion_sauvc
 
-<div align="center"><img src="merlion_setup/doc_images/team.png" width="800"/></div>
+<div align="center"><img src="merlion_setup/doc_images/team.jpg" width="800"/></div>
 
 ## Introduction
 Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). This is a ROS-based project.
 
 A demo video of our team AUV
-[![Team Merlion AUV](https://www.flickr.com/photos/sauvc/25874960687/in/album-72157664568068447/)](https://www.youtube.com/watch?v=e0qRCkM5vdQ)
+[![Team Merlion AUV](https://github.com/phamngtuananh/merlion_sauvc/raw/master/merlion_setup/doc_images/team_2.jpg)](https://www.youtube.com/watch?v=e0qRCkM5vdQ)
 
 ## Goals
 
@@ -14,7 +14,7 @@ A demo video of our team AUV
 - [ ] Win
 
 ## Requirements
-- ROS Kinetic (Ubuntu 16.04 LTS). 
+- ROS Kinetic (Ubuntu 16.04 LTS).
   - ROS Indigo (Ubuntu 14.04 LTS) may work but is no longer supported.
 
 - Install package dependencies:
