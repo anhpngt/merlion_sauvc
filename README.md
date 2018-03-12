@@ -71,3 +71,8 @@ roslaunch merlion_bringup joy_bringup.launch
 roslaunch merlion_bringup sensors.launch
 roslaunch merlion_bringup image_view.launch
 ```
+Fixing webcam node died:
+```
+sudo rmmod uvcvideo
+sudo modprobe uvcvideo
+```
