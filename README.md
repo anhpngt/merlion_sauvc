@@ -1,7 +1,12 @@
 # merlion_sauvc
 
+<div align="center"><img src="merlion_setup/doc_images/team.png" width="800"/></div>
+
 ## Introduction
 Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). This is a ROS-based project.
+
+A demo video of our team AUV
+[![Team Merlion AUV](https://www.flickr.com/photos/sauvc/25874960687/in/album-72157664568068447/)](https://www.youtube.com/watch?v=e0qRCkM5vdQ)
 
 ## Goals
 
