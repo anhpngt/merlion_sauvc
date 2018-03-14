@@ -1,6 +1,6 @@
 # merlion_sauvc
 
-<div align="center"><img src="merlion_setup/doc_images/team.jpg" width="600"/></div>
+<div align="center"><img src="merlion_setup/doc_images/team.jpg" width="800"/></div>
 
 ## Introduction
 Repository for Team Merlion to participate in [SAUVC 2018](https://sauvc.org/). This is a ROS-based project.
